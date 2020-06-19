@@ -4,4 +4,9 @@ CONFIG -= app_bundle
 CONFIG -= qt
 
 SOURCES += \
-        main.c
+        main.c \
+        parsewav.c
+
+HEADERS += \
+    main.h \
+    parsewav.h
