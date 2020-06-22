@@ -15,9 +15,19 @@
 #define _ABIT_FILE_STDIN  "-"
 // Data baud rate
 #define DATA_BAUD_RATE 2400
+// End of integer
+#define EOF_INT  0x1000000
+//
+#define NDATA_LEN 320                    // std framelen 320
+#define XDATA_LEN 198
+#define FRAME_LEN (NDATA_LEN+XDATA_LEN)  // max framelen 518
 
 typedef struct {
-  char filename[1024];  // Input wav file
+  char filename[1024];  // input wav file
+  int inverse; // inverted signal
+  int resolution; // more accurate bit measurement
+  int altdemod; // alternative demod technic
+  int average; // moving average
 }GetOptSettings;
 
 // Print help and usage of application

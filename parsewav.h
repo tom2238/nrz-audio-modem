@@ -2,12 +2,13 @@
 #define AUDIO_BIT_PARSEWAV_H
 
 typedef struct {
-  int sample_rate;
-  int bits_sample;
-  int channels;
+  int sample_rate; // WAV sample rate eg. 44100 Hz
+  int bits_sample; // 8 or 16 bit
+  int channels; // mono or stereo
   float samples_per_bit;
-  int ret;
-  FILE *fp;
+  int ret;  // exit status
+  FILE *fp; // input file
+  int wav_channel; // 0 left
 }WavFileInfo;
 
 // Read WAVe file header

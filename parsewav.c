@@ -12,7 +12,7 @@ int findstr(char *buff, char *str, int pos) {
 }
 
 WavFileInfo ReadWAVHeader(FILE *fp) {
-    WavFileInfo wave = {0,0,0,0,0,fp};
+    WavFileInfo wave = {0,0,0,0,0,fp,0};
     char txt[4+1] = "\0\0\0\0";
     unsigned char dat[4];
     int byte, p=0;

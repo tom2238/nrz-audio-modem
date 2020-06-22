@@ -5,8 +5,10 @@ CONFIG -= qt
 
 SOURCES += \
         main.c \
-        parsewav.c
+        parsewav.c \
+        readbits.c
 
 HEADERS += \
     main.h \
-    parsewav.h
+    parsewav.h \
+    readbits.h
