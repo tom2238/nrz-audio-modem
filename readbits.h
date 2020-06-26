@@ -16,6 +16,10 @@ typedef struct {
   float mu;
   float bvar[FRAME_LEN];
   int bitstart;
+  int par;
+  int par_alt;
+  double bitgrenze;
+  unsigned long scount;
 }RBits;
 
 //

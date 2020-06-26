@@ -7,17 +7,18 @@ int ReadBitsFSK(WavFileInfo wave, GetOptSettings setup, RBits *databits ,int *bi
     int n = 0, y0;
     float l, x1;
     static float x0;
-    int par=1, par_alt=1;
 
     do{
         y0 = sample;
         sample = ReadSignedSample(wave, setup, databits);
-        if (sample == EOF_INT) return EOF;
+        if (sample == EOF_INT) {
+          return EOF;
+        }
         //sample_count++; // in ReadSignedSample()
-        par_alt = par;
-        par =  (sample >= 0) ? 1 : -1;  // 8bit: 0..127,128..255 (-128..-1,0..127)
+        databits->par_alt = databits->par;
+        databits->par =  (sample >= 0) ? 1 : -1;  // 8bit: 0..127,128..255 (-128..-1,0..127)
         n++;
-    } while (par*par_alt > 0);
+    } while (((databits->par)*(databits->par_alt)) > 0);
 
     if (!setup.resolution) {
         l = (float)n / wave.samples_per_bit;
@@ -31,10 +32,10 @@ int ReadBitsFSK(WavFileInfo wave, GetOptSettings setup, RBits *databits ,int *bi
     *len = (int)(l+0.5);
 
     if (!setup.inverse){
-        *bit = (1+par_alt)/2;  // top 1, bottom -1
+        *bit = (1+databits->par_alt)/2;  // top 1, bottom -1
     }
     else {
-        *bit = (1-par_alt)/2;  // sdr # <rev1381?, inverse: bottom 1, top -1
+        *bit = (1-databits->par_alt)/2;  // sdr # <rev1381?, inverse: bottom 1, top -1
     }
 
     /* Y-offset ? */
@@ -102,15 +103,13 @@ int ReadRawbit(WavFileInfo wave, GetOptSettings setup, RBits *databits,int *bit)
     int sum = 0;
     int sample0 = 0;
     int pars = 0;
-    double bitgrenze = 0;
-    unsigned long scount = 0;
 
     if (databits->bitstart) {
-        scount = 1;    // (sample_count overflow/wrap-around)
-        bitgrenze = 0; // d.h. bitgrenze = sample_count-1 (?)
+        databits->scount = 1;    // (sample_count overflow/wrap-around)
+        databits->bitgrenze = 0; // d.h. bitgrenze = sample_count-1 (?)
         databits->bitstart = 0;
     }
-    bitgrenze += wave.samples_per_bit;
+    databits->bitgrenze += wave.samples_per_bit;
 
     do {
         sample = ReadSignedSample(wave, setup, databits);
@@ -126,8 +125,8 @@ int ReadRawbit(WavFileInfo wave, GetOptSettings setup, RBits *databits,int *bit)
         }
         sample0 = sample;
 
-        scount++;
-    } while (scount < bitgrenze);  // n < samples_per_bit
+        databits->scount++;
+    } while (databits->scount < databits->bitgrenze);  // n < samples_per_bit
 
     if (sum >= 0) {
       *bit = 1;
