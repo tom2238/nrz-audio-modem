@@ -3,6 +3,7 @@
 
 #include "main.h"
 #include "parsewav.h"
+#include "frame.h"
 
 #define LEN_movAvg 3
 

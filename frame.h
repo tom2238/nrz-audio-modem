@@ -1,0 +1,40 @@
+#ifndef AUDIO_BIT_FRAME_H
+#define AUDIO_BIT_FRAME_H
+
+// Frame and header
+#define HEAD_OFS 24 // HEADOFS+HEADLEN <= 64
+#define HEAD_LEN 32 // HEADOFS+HEADLEN mod 8 = 0
+#define FRAME_START ((HEAD_OFS+HEAD_LEN)/8)
+#define pos_AUX       0x12B
+// Data and frame length
+#define NDATA_LEN 320                    // std framelen 320
+#define XDATA_LEN 198
+#define FRAME_LEN (NDATA_LEN+XDATA_LEN)  // max framelen 518
+// Scrambler mask length
+#define FRAME_XORMASK_LEN 64
+
+typedef struct {
+  uint8_t value[FRAME_LEN];
+  int length;
+}FrameData;
+
+typedef struct {
+    char *header;
+    char value[HEAD_LEN+1];
+    int position;
+}FrameHead;
+
+//
+FrameData NewFrameData();
+//
+FrameHead NewFrameHead();
+//
+void IncHeadPos(FrameHead *incpos);
+//
+int FrameHeadCompare(FrameHead head);
+//
+void PrintFrameData(FrameData frame);
+//
+void FrameXOR(FrameData *frame, int start);
+
+#endif // AUDIO_BIT_FRAME_H

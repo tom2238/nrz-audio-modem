@@ -1,11 +1,12 @@
 #include "main.h"
 #include "parsewav.h"
 #include "readbits.h"
+#include "frame.h"
 
 GetOptSettings optsettings = {_ABIT_FILE_NO_SET,0,0,0,0};
 WavFileInfo wavefile = {0,0,0,0,0,NULL,0};
 RBits readingbits;
-BufferHead bufferheader = {"0000100001101101010100111000100001000100011010010100100000011111", "x", -1};
+FrameHead bufferheader;
 
 int main(int argc, char *argv[]) {
   signal(SIGINT, SignalHandler);
@@ -15,14 +16,15 @@ int main(int argc, char *argv[]) {
   int bit = 0;
   int len = 0;
   int byte = 0;
-  int byte_count = FRAMESTART;
+  int byte_count = FRAME_START;
   int bit_count = 0;
   int header_found = 0;
   int frmlen = FRAME_LEN;
   int ft_len = FRAME_LEN;
   char bitbuf[8];
-  //uint8_t xframe[FRAME_LEN] = { 0x10, 0xB6, 0xCA, 0x11, 0x22, 0x96, 0x12, 0xF8},    = xorbyte( frame)
-  uint8_t frame[FRAME_LEN] = { 0x86, 0x35, 0xf4, 0x40, 0x93, 0xdf, 0x1a, 0x60}; // = xorbyte(xframe)
+
+  FrameData frame = NewFrameData();
+  bufferheader = NewFrameHead();
   int sumQ = 0, bitQ = 0, Qerror_count = 0;
 
   if(argc == 1){
@@ -111,23 +113,26 @@ int main(int argc, char *argv[]) {
         if (byte_count > pos_AUX) {
           printf("Print frame len==0\n");
           bit_count = 0;
-          byte_count = FRAMESTART;
+          byte_count = FRAME_START;
           header_found = 0;
+          FrameXOR(&frame,8);
+          PrintFrameData(frame);
         }
 
-        //IncBufPos();
+        //IncHeadPos(&bufferheader);
         //buf[bufpos] = 'x';
         continue;   // ...
       }
 
       for (i = 0; i < len; i++) {
-        IncBufPos();
-        bufferheader.buf[bufferheader.bufpos] = 0x30 + bit;  // Ascii
+        IncHeadPos(&bufferheader);
+        bufferheader.value[bufferheader.position] = 0x30 + bit;  // Ascii
 
         if (!header_found) {
-          if (Compare() >= HEADLEN) {
+          if (FrameHeadCompare(bufferheader) >= HEAD_LEN) {
             header_found = 1;
             printf("Header found\n");
+
           }
         }
         else {
@@ -137,15 +142,16 @@ int main(int argc, char *argv[]) {
           if (bit_count == 8) {
             bit_count = 0;
             byte = Bits2Byte(bitbuf);
-            //xframe[byte_count] = byte;
             //frame[byte_count] = byte ^ mask[byte_count % MASK_LEN];
-            frame[byte_count] = byte;
+            frame.value[byte_count] = byte;
             byte_count++;
 
             if (byte_count == frmlen) {
-              byte_count = FRAMESTART;
+              byte_count = FRAME_START;
               header_found = 0;
               printf("Print frame after count==frmlen\n");
+              FrameXOR(&frame,8);
+              PrintFrameData(frame);
             }
           }
         }
@@ -167,9 +173,8 @@ int main(int argc, char *argv[]) {
           if (bit_count == 8) {
             bit_count = 0;
             byte = Bits2Byte(bitbuf);
-            //xframe[byte_count] = byte;
             //frame[byte_count] = byte ^ mask[byte_count % MASK_LEN];
-            frame[byte_count] = byte;
+            frame.value[byte_count] = byte;
 
             readingbits.mu = readingbits.xsum/(float)readingbits.Nvar;
             readingbits.bvar[byte_count] = readingbits.qsum/(float)readingbits.Nvar - readingbits.mu*readingbits.mu;
@@ -189,7 +194,7 @@ int main(int argc, char *argv[]) {
         }
         header_found = 0;
         printf("Print frame");
-        byte_count = FRAMESTART;
+        byte_count = FRAME_START;
       }
     }
     if (optsettings.altdemod) {
@@ -226,10 +231,6 @@ void SignalHandler(int number) {
    exit(ABIT_ERROR_SIGNAL);
 }
 
-void IncBufPos() {
-  bufferheader.bufpos = (bufferheader.bufpos+1) % HEADLEN;
-}
-
 int Bits2Byte(char bits[]) {
     int i, byteval=0, d=1;
     for (i = 0; i < 8; i++) {     // little endian
@@ -246,22 +247,4 @@ int Bits2Byte(char bits[]) {
         d <<= 1;
     }
     return byteval;
-}
-
-int Compare() {
-    int i = 0;
-    int j = bufferheader.bufpos;
-
-    while (i < HEADLEN) {
-      if (j < 0) {
-        j = HEADLEN-1;
-      }
-      if (bufferheader.buf[j] != bufferheader.header[HEADOFS+HEADLEN-1-i]) {
-        break;
-      }
-      j--;
-      i++;
-    }
-
-    return i;
 }
