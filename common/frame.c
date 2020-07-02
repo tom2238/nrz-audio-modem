@@ -1,4 +1,5 @@
-#include "main.h"
+#include <stdint.h>
+#include <stdio.h>
 #include "frame.h"
 
 //{ 0x10, 0xB6, 0xCA, 0x11, 0x22, 0x96, 0x12, 0xF8} transmitted in frame

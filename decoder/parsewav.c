@@ -118,7 +118,7 @@ WavFileInfo ReadWAVHeader(FILE *fp) {
       return wave;
     }
 
-    wave.samples_per_bit = wave.sample_rate/(float)(2*DATA_BAUD_RATE);
+    wave.samples_per_bit = wave.sample_rate/(float)(DATA_BAUD_RATE);
 
     fprintf(stderr, "samples/bit: %.2f\n", wave.samples_per_bit);
 

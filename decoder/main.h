@@ -15,7 +15,7 @@
 #define _ABIT_FILE_STDOUT "-"
 #define _ABIT_FILE_STDIN  "-"
 // Data baud rate
-#define DATA_BAUD_RATE 2400
+#define DATA_BAUD_RATE 4800
 // End of integer
 #define EOF_INT  0x1000000
 #define MASK_LEN 64
@@ -40,7 +40,7 @@ typedef struct {
 void Usage(char *p_name);
 // Signal handler
 void SignalHandler(int number);
-//
+// Convert 8 bits into one byte
 int Bits2Byte(char bits[]);
 
 #endif // AUDIO_BIT_MAIN_H
