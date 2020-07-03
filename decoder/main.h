@@ -14,8 +14,6 @@
 #define _ABIT_FILE_NO_SET "σame"
 #define _ABIT_FILE_STDOUT "-"
 #define _ABIT_FILE_STDIN  "-"
-// Data baud rate
-#define DATA_BAUD_RATE 4800
 // End of integer
 #define EOF_INT  0x1000000
 #define MASK_LEN 64
@@ -24,12 +22,11 @@
 #define ABIT_ERROR_SIGNAL 1
 #define ABIT_ERROR_FILENOSET 2
 #define ABIT_ERROR_FILEOPEN 3
-#define ABIT_ERROR_WAVREADING 4
-#define ABIT_ERROR_WAVBITS 5
 #define ABIT_ERROR_CALLOC 6
 
 typedef struct {
   char filename[1024];  // input wav file
+  int baudrate; // Data baud rate
   int inverse; // inverted signal
   int resolution; // more accurate bit measurement
   int altdemod; // alternative demod technic

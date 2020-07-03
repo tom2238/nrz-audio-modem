@@ -3,7 +3,7 @@
 #include "readbits.h"
 #include "frame.h"
 
-GetOptSettings optsettings = {_ABIT_FILE_NO_SET,0,0,0,0};
+GetOptSettings optsettings = {_ABIT_FILE_NO_SET,DATA_BAUD_RATE,0,0,0,0};
 WavFileInfo wavefile = {0,0,0,0,0,NULL,0};
 RBits readingbits;
 FrameHead bufferheader;
@@ -33,7 +33,7 @@ int main(int argc, char *argv[]) {
   }
 
   int opt = 0;
-    while ((opt = getopt(argc, argv, "hi:IRA")) != -1){
+    while ((opt = getopt(argc, argv, "hi:b:IRAD")) != -1){
       switch (opt) {
       case 'h': //Help
         Usage(argv[0]);
@@ -41,6 +41,13 @@ int main(int argc, char *argv[]) {
         break;
       case 'i': //Input WAV file
         strncpy(optsettings.filename,optarg,sizeof(optsettings.filename)-1);
+        break;
+      case 'b': //Baud rate
+        optsettings.baudrate = atoi(optarg);
+        if(optsettings.baudrate <= 0) {
+           optsettings.baudrate = (int)DATA_BAUD_RATE;
+           fprintf(stderr,"Wrong baud rate, setting to default\n");
+        }
         break;
       case 'I': //Inverse signal
         optsettings.inverse = 1;
@@ -50,6 +57,9 @@ int main(int argc, char *argv[]) {
         break;
       case 'A': //Average decoding
         optsettings.average = 1;
+        break;
+      case 'D': //Alternative demodulation technic
+        optsettings.altdemod= 1;
         break;
       case '?': //Unknown option
         //printf("  Error: %c\n", optopt);
@@ -90,7 +100,7 @@ int main(int argc, char *argv[]) {
     readingbits.bitgrenze = 0;
     readingbits.scount = 0;
 
-    wavefile = ReadWAVHeader(wavefile.fp);
+    wavefile = ReadWAVHeader(wavefile.fp, optsettings.baudrate);
     if(wavefile.ret != 0) {
       fprintf(stderr, "Error reading WAV file ... exit!\n");
       exit(wavefile.ret);
@@ -100,7 +110,7 @@ int main(int argc, char *argv[]) {
     if (optsettings.altdemod) {
         readingbits.Nvar = 32*wavefile.samples_per_bit;
         readingbits.bufvar = (float *)calloc( readingbits.Nvar+1, sizeof(float));
-        if (readingbits.bufvar  == NULL) {
+        if (readingbits.bufvar == NULL) {
           return ABIT_ERROR_CALLOC;
         }
         for (i = 0; i < readingbits.Nvar; i++) {
@@ -142,7 +152,6 @@ int main(int argc, char *argv[]) {
           if (bit_count == 8) {
             bit_count = 0;
             byte = Bits2Byte(bitbuf);
-            //frame[byte_count] = byte ^ mask[byte_count % MASK_LEN];
             frame.value[byte_count] = byte;
             byte_count++;
 
@@ -173,11 +182,11 @@ int main(int argc, char *argv[]) {
           if (bit_count == 8) {
             bit_count = 0;
             byte = Bits2Byte(bitbuf);
-            //frame[byte_count] = byte ^ mask[byte_count % MASK_LEN];
-            frame.value[byte_count] = byte;
+            //frame.value[byte_count] = byte;
 
             readingbits.mu = readingbits.xsum/(float)readingbits.Nvar;
             readingbits.bvar[byte_count] = readingbits.qsum/(float)readingbits.Nvar - readingbits.mu*readingbits.mu;
+            frame.value[byte_count] = readingbits.bvar[byte_count];
 
             if (byte_count > NDATA_LEN) {  // Errors only from minimal framelen counts
               //ratioQ = sumQ/samples_per_bit; // approx: with noise zeroX / byte unfortunately not linear in sample_rate
@@ -193,7 +202,9 @@ int main(int argc, char *argv[]) {
           Qerror_count += 1;
         }
         header_found = 0;
-        printf("Print frame");
+        printf("Print frame altdemod\n");
+        FrameXOR(&frame,8);
+        PrintFrameData(frame);
         byte_count = FRAME_START;
       }
     }
@@ -203,18 +214,20 @@ int main(int argc, char *argv[]) {
         readingbits.bufvar = NULL;
       }
     }
-
+    fclose(wavefile.fp);
   return ABIT_ERROR_NOERROR;
 }
 
 void Usage(char *p_name) {
   printf("Audio bit decoder, based on RS41\n");
-  printf("Usage: %s (-i filename [-IRA])| -h\n",p_name);
+  printf("Usage: %s (-i <filename> [-IRAD] -b <rate>)| -h\n",p_name);
   printf("  -i <filename> Input 8 or 16 bit WAV file\n");
   printf("  -i -          Read from stdin\n");
+  printf("  -b <rate>     Signal baud rate, default 4800\n");
   printf("  -I            Inverse signal\n");
   printf("  -R            Better bit resolution\n");
   printf("  -A            Average decoding\n");
+  printf("  -D            Alternative demodulation technic\n");
   printf("  -h            Show this help\n");
   printf("                Build: %s %s, GCC %s\n", __TIME__, __DATE__, __VERSION__);
 }
@@ -227,6 +240,7 @@ void SignalHandler(int number) {
        readingbits.bufvar = NULL;
      }
    }
+   fclose(wavefile.fp);
    printf("abort\n");
    exit(ABIT_ERROR_SIGNAL);
 }

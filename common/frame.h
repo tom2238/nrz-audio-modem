@@ -1,6 +1,8 @@
 #ifndef AUDIO_BIT_FRAME_H
 #define AUDIO_BIT_FRAME_H
 
+#include "stdint.h"
+
 // Frame and header
 #define HEAD_OFS 24 // HEADOFS+HEADLEN <= 64
 #define HEAD_LEN 32 // HEADOFS+HEADLEN mod 8 = 0
@@ -12,6 +14,8 @@
 #define FRAME_LEN (NDATA_LEN+XDATA_LEN)  // max framelen 518
 // Scrambler mask length
 #define FRAME_XORMASK_LEN 64
+// Default data baud rate
+#define DATA_BAUD_RATE 4800
 
 typedef struct {
   uint8_t value[FRAME_LEN];
@@ -19,9 +23,9 @@ typedef struct {
 }FrameData;
 
 typedef struct {
-    char *header;
-    char value[HEAD_LEN+1];
-    int position;
+  char *header;
+  char value[HEAD_LEN+1];
+  int position;
 }FrameHead;
 
 //

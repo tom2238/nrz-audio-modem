@@ -1,6 +1,8 @@
 TEMPLATE = lib
 CONFIG = staticlib
 SOURCES =  \
-    frame.c
+    frame.c \
+    parsewav.c
 HEADERS =  \
-    frame.h
+    frame.h \
+    parsewav.h

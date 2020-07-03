@@ -1,4 +1,6 @@
-#include "main.h"
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 #include "parsewav.h"
 
 int findstr(char *buff, char *str, int pos) {
@@ -11,7 +13,7 @@ int findstr(char *buff, char *str, int pos) {
   return i;
 }
 
-WavFileInfo ReadWAVHeader(FILE *fp) {
+WavFileInfo ReadWAVHeader(FILE *fp, int baudrate) {
     WavFileInfo wave = {0,0,0,0,0,fp,0};
     char txt[4+1] = "\0\0\0\0";
     unsigned char dat[4];
@@ -118,7 +120,7 @@ WavFileInfo ReadWAVHeader(FILE *fp) {
       return wave;
     }
 
-    wave.samples_per_bit = wave.sample_rate/(float)(DATA_BAUD_RATE);
+    wave.samples_per_bit = wave.sample_rate/(float)(baudrate);
 
     fprintf(stderr, "samples/bit: %.2f\n", wave.samples_per_bit);
 

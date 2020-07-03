@@ -7,11 +7,9 @@ CONFIG -= app_bundle
 CONFIG -= qt
 
 SOURCES += \
-        main.c \
-        parsewav.c \
+        main.c \      
         readbits.c
 
 HEADERS += \
     main.h \
-    parsewav.h \
     readbits.h
