@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <getopt.h>
 #include <signal.h>
+#include <math.h>
 
 // Files
 #define _ABIT_FILE_NO_SET "σame"
@@ -21,6 +22,7 @@
 typedef struct {
   char filename[1024];  // output wav file
   int baudrate; // Data baud rate
+  int wavsamplerate; // WAV file sample rate
 }GetOptSettings;
 
 // Print help and usage of application

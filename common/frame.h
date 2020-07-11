@@ -1,7 +1,8 @@
 #ifndef AUDIO_BIT_FRAME_H
 #define AUDIO_BIT_FRAME_H
 
-#include "stdint.h"
+#include <stdint.h>
+#include <stdio.h>
 
 // Frame and header
 #define HEAD_OFS 24 // HEADOFS+HEADLEN <= 64
