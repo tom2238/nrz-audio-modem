@@ -3,13 +3,15 @@
 #include "frame.h"
 
 WavFileInfo wavefile = {WF_SAMPLE_RATE,WF_SAMPLEBITS,WF_CHANNELS,0,0,NULL,0};
-GetOptSettings optsettings = {_ABIT_FILE_NO_SET,DATA_BAUD_RATE, WF_SAMPLE_RATE};
+GetOptSettings optsettings = {_ABIT_FILE_NO_SET,_ABIT_FILE_NO_SET,DATA_BAUD_RATE, WF_SAMPLE_RATE,0,0};
+FILE *InputDataFile;
 
 int main(int argc, char *argv[]) {
     signal(SIGINT, SignalHandler);
     signal(SIGTERM, SignalHandler);
     char msg[255];
     int i,j;
+    InputDataFile = NULL;
 
     if(argc == 1){
       Usage(argv[0]);
@@ -17,7 +19,7 @@ int main(int argc, char *argv[]) {
     }
 
     int opt = 0;
-      while ((opt = getopt(argc, argv, "ho:b:w:")) != -1){
+      while ((opt = getopt(argc, argv, "ho:b:w:i:R")) != -1){
         switch (opt) {
         case 'h': //Help
           Usage(argv[0]);
@@ -25,6 +27,9 @@ int main(int argc, char *argv[]) {
           break;
         case 'o': //Output WAV file
           strncpy(optsettings.filename,optarg,sizeof(optsettings.filename)-1);
+          break;
+        case 'i': //Input data file
+          strncpy(optsettings.inputfile,optarg,sizeof(optsettings.inputfile)-1);
           break;
         case 'b': //Baud rate
           optsettings.baudrate = atoi(optarg);
@@ -40,6 +45,10 @@ int main(int argc, char *argv[]) {
              fprintf(stderr,"Wrong wav sample rate (min 8000), setting to default\n");
           }
           break;
+        case 'R': //RAW output
+          optsettings.rawoutput = 1;
+          fprintf(stderr,"RAW output\n");
+          break;
         case '?': //Unknown option
           //printf("  Error: %c\n", optopt);
           return 1;
@@ -48,11 +57,12 @@ int main(int argc, char *argv[]) {
           return ABIT_ERROR_NOERROR;
         }
       }
+      // Output file
       if(strncmp(optsettings.filename,_ABIT_FILE_NO_SET,4) == 0) {
         printf("%s: required argument and option -- '-o <filename>'\n",argv[0]);
         exit(ABIT_ERROR_FILENOSET);
       }
-      if(strncmp(optsettings.filename,_ABIT_FILE_STDOUT,2) == 0) {
+      else if(strncmp(optsettings.filename,_ABIT_FILE_STDOUT,2) == 0) {
         wavefile.fp = stdout;
       }
       else {
@@ -63,11 +73,24 @@ int main(int argc, char *argv[]) {
           exit(ABIT_ERROR_FILEOPEN);
         }
       }
+      // Input data file
+      if(strncmp(optsettings.inputfile,_ABIT_FILE_NO_SET,4) == 0) {
+        optsettings.zeroframe = 1;
+      }
+      else if(strncmp(optsettings.inputfile,_ABIT_FILE_STDIN,2) == 0) {
+        InputDataFile = stdin;
+      }
+      else {
+        if((InputDataFile = fopen(optsettings.inputfile, "rb")) == NULL){
+          strcpy(msg, "Error opening ");
+          strcat(msg, optsettings.inputfile);
+          perror(msg);
+          exit(ABIT_ERROR_FILEOPEN);
+        }
+      }
 
     wavefile.sample_rate = optsettings.wavsamplerate;
     wavefile.samples_per_bit = (float)optsettings.wavsamplerate/(float)optsettings.baudrate;
-
-
 
     fprintf(stderr,"Baud Rate: %d\n",optsettings.baudrate);
     fprintf(stderr,"Sample rate: %d\n",optsettings.wavsamplerate);
@@ -76,20 +99,38 @@ int main(int argc, char *argv[]) {
     float frame_time = FRAME_LEN * 8 / (float)(optsettings.baudrate);
     fprintf(stderr,"Frame time: %f\n",frame_time);
 
-    WriteWAVHeader(frame_time, wavefile);
+    if(!optsettings.rawoutput) {
+      WriteWAVHeader(frame_time, wavefile);
+    }
 
     uint8_t dataframe_byte;
     uint8_t dataframe_bits[8];
-
     float sample_bits = 0;
     uint32_t framecount = 0;
     FrameData dataframe;
+
     while(1) {
       dataframe = NewFrameData();
-      dataframe.value[8] = (framecount >> 24) & 0xFF;
-      dataframe.value[9] = (framecount >> 16) & 0xFF;
-      dataframe.value[10] = (framecount >> 8) & 0xFF;
-      dataframe.value[11] = (framecount >> 0) & 0xFF;
+      if(optsettings.zeroframe) {
+        dataframe.value[8] = (framecount >> 24) & 0xFF;
+        dataframe.value[9] = (framecount >> 16) & 0xFF;
+        dataframe.value[10] = (framecount >> 8) & 0xFF;
+        dataframe.value[11] = (framecount >> 0) & 0xFF;
+      }
+      else {
+        if(feof(InputDataFile)) {
+          if(strncmp(optsettings.filename,_ABIT_FILE_STDOUT,2) != 0) {
+            if(!optsettings.rawoutput) {
+              fseek(wavefile.fp, 0, SEEK_SET);
+              WriteWAVHeader((float)(framecount)*FRAME_LEN*8/((float)(optsettings.baudrate)),wavefile);
+            }
+          }
+          break;
+        }
+        for(i=FRAME_START+1;i<dataframe.length;i++) {
+          dataframe.value[i] = (uint8_t)(fread_int(1,InputDataFile) & 0xFF);
+        }
+      }
       FrameXOR(&dataframe,0);
       for(i=0;i<dataframe.length;i++) {
         dataframe_byte = dataframe.value[i];
@@ -107,16 +148,23 @@ int main(int argc, char *argv[]) {
       }
       framecount++;
     }
-
-    fclose(wavefile.fp);
+    if(wavefile.fp != NULL) {
+      fclose(wavefile.fp);
+    }
+    if(InputDataFile != NULL) {
+      fclose(InputDataFile);
+    }
     return ABIT_ERROR_NOERROR;
 }
 
 void Usage(char *p_name) {
   printf("Audio bit encoder, based on RS41\n");
-  printf("Usage: %s (-o <filename> ) -b <rate> -w <rate> | -h\n",p_name);
+  printf("Usage: %s -o <filename> [-i <filename> -b <rate> -w <rate> -R] | -h\n",p_name);
   printf("  -o <filename> Output WAV file\n");
   printf("  -o -          Write to stdout\n");
+  printf("  -R            RAW output\n");
+  printf("  -i <filename> Data file to read\n");
+  printf("  -i -          Read from stdin\n");
   printf("  -b <rate>     Signal baud rate, default 4800 b/s\n");
   printf("  -w <rate>     WAV file sample rate, default 24000 Hz\n");
   printf("  -h            Show this help\n");
@@ -127,7 +175,12 @@ void Usage(char *p_name) {
 
 void SignalHandler(int number) {
    fprintf(stderr,"\nCaught signal %d ... ", number);
-   fclose(wavefile.fp);
+   if(wavefile.fp != NULL) {
+     fclose(wavefile.fp);
+   }
+   if(InputDataFile != NULL) {
+     fclose(InputDataFile);
+   }
    fprintf(stderr,"abort\n");
    exit(ABIT_ERROR_SIGNAL);
 }

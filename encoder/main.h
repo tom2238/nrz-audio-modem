@@ -21,8 +21,11 @@
 
 typedef struct {
   char filename[1024];  // output wav file
+  char inputfile[1024]; // input data file
   int baudrate; // Data baud rate
   int wavsamplerate; // WAV file sample rate
+  int rawoutput; // RAW sound samples at output
+  int zeroframe; // Without input file produce zero frames
 }GetOptSettings;
 
 // Print help and usage of application
