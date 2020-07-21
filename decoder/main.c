@@ -3,10 +3,11 @@
 #include "readbits.h"
 #include "frame.h"
 
-GetOptSettings optsettings = {_ABIT_FILE_NO_SET,DATA_BAUD_RATE,0,0,0,0};
+GetOptSettings optsettings = {_ABIT_FILE_NO_SET,_ABIT_FILE_NO_SET,DATA_BAUD_RATE,0,0,0,0,0};
 WavFileInfo wavefile = {0,0,0,0,0,NULL,0};
 RBits readingbits;
 FrameHead bufferheader;
+FILE *OutputDataFile;
 
 int main(int argc, char *argv[]) {
   signal(SIGINT, SignalHandler);
@@ -22,6 +23,7 @@ int main(int argc, char *argv[]) {
   int frmlen = FRAME_LEN;
   int ft_len = FRAME_LEN;
   char bitbuf[8];
+  OutputDataFile = NULL;
 
   FrameData frame = NewFrameData();
   bufferheader = NewFrameHead();
@@ -33,7 +35,7 @@ int main(int argc, char *argv[]) {
   }
 
   int opt = 0;
-    while ((opt = getopt(argc, argv, "hi:b:IRAD")) != -1){
+    while ((opt = getopt(argc, argv, "hi:o:b:IRAD")) != -1){
       switch (opt) {
       case 'h': //Help
         Usage(argv[0]);
@@ -41,6 +43,9 @@ int main(int argc, char *argv[]) {
         break;
       case 'i': //Input WAV file
         strncpy(optsettings.filename,optarg,sizeof(optsettings.filename)-1);
+        break;
+      case 'o': //Output data file
+        strncpy(optsettings.outputfile,optarg,sizeof(optsettings.outputfile)-1);
         break;
       case 'b': //Baud rate
         optsettings.baudrate = atoi(optarg);
@@ -69,12 +74,12 @@ int main(int argc, char *argv[]) {
         return ABIT_ERROR_NOERROR;
       }
     }
-
+    // Input WAV file
     if(strncmp(optsettings.filename,_ABIT_FILE_NO_SET,4) == 0) {
       printf("%s: required argument and option -- '-i <filename>'\n",argv[0]);
       exit(ABIT_ERROR_FILENOSET);
     }
-    if(strncmp(optsettings.filename,_ABIT_FILE_STDIN,2) == 0) {
+    else if(strncmp(optsettings.filename,_ABIT_FILE_STDIN,2) == 0) {
       wavefile.fp = stdin;
     }
     else {
@@ -85,6 +90,22 @@ int main(int argc, char *argv[]) {
         exit(ABIT_ERROR_FILEOPEN);
       }
     }
+    // Output data file
+    if(strncmp(optsettings.outputfile,_ABIT_FILE_NO_SET,4) == 0) {
+      optsettings.printframe = 1;
+    }
+    else if(strncmp(optsettings.outputfile,_ABIT_FILE_STDOUT,2) == 0) {
+      OutputDataFile = stdout;
+    }
+    else {
+      if((OutputDataFile = fopen(optsettings.outputfile, "wb")) == NULL){
+        strcpy(msg, "Error opening ");
+        strcat(msg, optsettings.outputfile);
+        perror(msg);
+        exit(ABIT_ERROR_FILEOPEN);
+      }
+    }
+
     for(i=0;i<LEN_movAvg;i++) {
       readingbits.movAvg[i] = 0;
     }
@@ -120,18 +141,21 @@ int main(int argc, char *argv[]) {
 
     while (!ReadBitsFSK(wavefile,optsettings,&readingbits,&bit,&len)) {
       if (len == 0) { // reset_frame();
-        if (byte_count > pos_AUX) {
-          printf("Print frame len==0\n");
+        if (byte_count > pos_AUX) {    
           bit_count = 0;
           byte_count = FRAME_START;
           header_found = 0;
-          FrameXOR(&frame,8);
-          PrintFrameData(frame);
+          FrameXOR(&frame,FRAME_START+1);
+          if(optsettings.printframe) {
+            printf("Print frame len==0\n");
+            PrintFrameData(frame);
+          }
+          else {
+            // Write frame
+            WriteFrameToFile(frame,OutputDataFile);
+          }
         }
-
-        //IncHeadPos(&bufferheader);
-        //buf[bufpos] = 'x';
-        continue;   // ...
+        continue;
       }
 
       for (i = 0; i < len; i++) {
@@ -141,8 +165,9 @@ int main(int argc, char *argv[]) {
         if (!header_found) {
           if (FrameHeadCompare(bufferheader) >= HEAD_LEN) {
             header_found = 1;
-            printf("Header found\n");
-
+            if(optsettings.printframe) {
+              printf("Header found\n");
+            }
           }
         }
         else {
@@ -158,9 +183,15 @@ int main(int argc, char *argv[]) {
             if (byte_count == frmlen) {
               byte_count = FRAME_START;
               header_found = 0;
-              printf("Print frame after count==frmlen\n");
-              FrameXOR(&frame,8);
-              PrintFrameData(frame);
+              FrameXOR(&frame,FRAME_START+1);
+              if(optsettings.printframe) {
+                printf("Print frame after count==frmlen\n");
+                PrintFrameData(frame);
+              }
+              else {
+                // Write frame
+                WriteFrameToFile(frame,OutputDataFile);
+              }
             }
           }
         }
@@ -188,7 +219,7 @@ int main(int argc, char *argv[]) {
             readingbits.bvar[byte_count] = readingbits.qsum/(float)readingbits.Nvar - readingbits.mu*readingbits.mu;
             frame.value[byte_count] = readingbits.bvar[byte_count];
 
-            if (byte_count > NDATA_LEN) {  // Errors only from minimal framelen counts
+            if (byte_count > FRAME_LEN) {  // Errors only from minimal framelen counts
               //ratioQ = sumQ/samples_per_bit; // approx: with noise zeroX / byte unfortunately not linear in sample_rate
               //if (ratioQ > 0.7) {            // sr=48k: 0.7, Threshold, from when probably noise bit
               if (readingbits.bvar[byte_count]*2 > readingbits.bvar[byte_count-300]*3) { // Var(frame)/Var(noise) ca. 1:2
@@ -202,9 +233,15 @@ int main(int argc, char *argv[]) {
           Qerror_count += 1;
         }
         header_found = 0;
-        printf("Print frame altdemod\n");
-        FrameXOR(&frame,8);
-        PrintFrameData(frame);
+        FrameXOR(&frame,FRAME_START+1);
+        if(optsettings.printframe) {
+          printf("Print frame altdemod\n");
+          PrintFrameData(frame);
+        }
+        else {
+          // Write frame
+          WriteFrameToFile(frame,OutputDataFile);
+        }
         byte_count = FRAME_START;
       }
     }
@@ -214,15 +251,22 @@ int main(int argc, char *argv[]) {
         readingbits.bufvar = NULL;
       }
     }
-    fclose(wavefile.fp);
+    if(wavefile.fp != NULL) {
+      fclose(wavefile.fp);
+    }
+    if(OutputDataFile != NULL) {
+      fclose(OutputDataFile);
+    }
   return ABIT_ERROR_NOERROR;
 }
 
 void Usage(char *p_name) {
   printf("Audio bit decoder, based on RS41\n");
-  printf("Usage: %s (-i <filename> [-IRAD] -b <rate>)| -h\n",p_name);
+  printf("Usage: %s (-i <filename> -o <filename> [-IRAD] -b <rate>)| -h\n",p_name);
   printf("  -i <filename> Input 8 or 16 bit WAV file\n");
   printf("  -i -          Read from stdin\n");
+  printf("  -o <filename> Output data file\n");
+  printf("  -o -          Write to stdout\n");
   printf("  -b <rate>     Signal baud rate, default 4800\n");
   printf("  -I            Inverse signal\n");
   printf("  -R            Better bit resolution\n");
@@ -235,15 +279,20 @@ void Usage(char *p_name) {
 }
 
 void SignalHandler(int number) {
-   printf("\nCaught signal %d ... ", number);
+   fprintf(stderr,"\nCaught signal %d ... ", number);
    if (optsettings.altdemod) {
      if (readingbits.bufvar)  {
        free(readingbits.bufvar);
        readingbits.bufvar = NULL;
      }
    }
-   fclose(wavefile.fp);
-   printf("abort\n");
+   if(wavefile.fp != NULL) {
+     fclose(wavefile.fp);
+   }
+   if(OutputDataFile != NULL) {
+     fclose(OutputDataFile);
+   }
+   fprintf(stderr,"abort\n");
    exit(ABIT_ERROR_SIGNAL);
 }
 

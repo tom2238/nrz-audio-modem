@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
           return ABIT_ERROR_NOERROR;
         }
       }
-      // Output file
+      // Output WAV file
       if(strncmp(optsettings.filename,_ABIT_FILE_NO_SET,4) == 0) {
         printf("%s: required argument and option -- '-o <filename>'\n",argv[0]);
         exit(ABIT_ERROR_FILENOSET);

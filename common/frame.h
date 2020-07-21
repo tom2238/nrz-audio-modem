@@ -10,9 +10,9 @@
 #define FRAME_START ((HEAD_OFS+HEAD_LEN)/8)
 #define pos_AUX       0x12B
 // Data and frame length
-#define NDATA_LEN 320                    // std framelen 320
-#define XDATA_LEN 198
-#define FRAME_LEN (NDATA_LEN+XDATA_LEN)  // max framelen 518
+//#define NDATA_LEN 320                    // std framelen 320
+//#define XDATA_LEN 198
+#define FRAME_LEN 518  // max framelen 518
 // Scrambler mask length
 #define FRAME_XORMASK_LEN 64
 // Default data baud rate
@@ -41,5 +41,7 @@ int FrameHeadCompare(FrameHead head);
 void PrintFrameData(FrameData frame);
 //
 void FrameXOR(FrameData *frame, int start);
+//
+void WriteFrameToFile(FrameData frame, FILE *fp);
 
 #endif // AUDIO_BIT_FRAME_H

@@ -26,11 +26,13 @@
 
 typedef struct {
   char filename[1024];  // input wav file
+  char outputfile[1024]; // output data file
   int baudrate; // Data baud rate
   int inverse; // inverted signal
   int resolution; // more accurate bit measurement
   int altdemod; // alternative demod technic
   int average; // moving average
+  int printframe; // print frame to output in hex format
 }GetOptSettings;
 
 // Print help and usage of application

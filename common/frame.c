@@ -59,9 +59,6 @@ void PrintFrameData(FrameData frame) {
   printf("%2d: ",lines);
   for(i=0;i<frame.length;i++) {
     printf("%2X ",frame.value[i]);
-    if(i>=NDATA_LEN-1) { // Limit to shorter frame
-      break;
-    }
     if((i+1)%16==0) {
       printf("\n");
       lines++;
@@ -94,4 +91,10 @@ void FrameXOR(FrameData *frame, int start) {
    }
 }
 
+void WriteFrameToFile(FrameData frame, FILE *fp) {
+  int i;
+  for(i=FRAME_START+1;i<frame.length;i++) {
+    fwrite(&frame.value[i], 1, 1, fp);
+  }
+}
 
