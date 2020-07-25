@@ -127,17 +127,18 @@ int main(int argc, char *argv[]) {
           }
           break;
         }
-        for(i=FRAME_START+1;i<dataframe.length;i++) {
+        for(i=FRAME_START+1;i<dataframe.length-CRC_SIZE;i++) {
           dataframe.value[i] = (uint8_t)(fread_int(1,InputDataFile) & 0xFF);
         }
       }
+      CalculateCRC16(&dataframe);
       FrameXOR(&dataframe,0);
-      for(i=0;i<dataframe.length;i++) {
+      for(i=0;i<dataframe.length;i++) { // Full frame include head and CRC
         dataframe_byte = dataframe.value[i];
         for(j=0;j<8;j++) {
           dataframe_bits[j] = (dataframe_byte >> j) & 0x01;
           while(1) {
-            WriteWAVSample((int)((32*32*10*(dataframe_bits[j]*2-1))),wavefile);
+            WriteWAVSample((int)((32*32*20*(dataframe_bits[j]*2-1))),wavefile);
             sample_bits += 1;
             if(sample_bits > wavefile.samples_per_bit) {
               sample_bits -= wavefile.samples_per_bit;

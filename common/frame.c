@@ -56,6 +56,8 @@ int FrameHeadCompare(FrameHead head) {
 void PrintFrameData(FrameData frame) {
   int i;
   int lines = 0;
+  uint16_t crctrs = GetFrameCRC16(frame);
+  uint16_t crcrec = CalculateCRC16(&frame); // Calculate rewrite internal CRC value
   printf("%2d: ",lines);
   for(i=0;i<frame.length;i++) {
     printf("%2X ",frame.value[i]);
@@ -65,7 +67,13 @@ void PrintFrameData(FrameData frame) {
       printf("%2d: ",lines);
     }
   }
-  printf("\n");
+  if(crcrec==crctrs) {
+    printf(" CRC OK ");
+  }
+  else {
+    printf(" CRC FAIL ");
+  }
+  printf("CRC(rt) %x : %x\n",crcrec,crctrs);
 }
 
 void FrameXOR(FrameData *frame, int start) {
@@ -93,8 +101,35 @@ void FrameXOR(FrameData *frame, int start) {
 
 void WriteFrameToFile(FrameData frame, FILE *fp) {
   int i;
-  for(i=FRAME_START+1;i<frame.length;i++) {
+  for(i=FRAME_START+1;i<frame.length-CRC_SIZE;i++) {
     fwrite(&frame.value[i], 1, 1, fp);
   }
+}
+
+uint16_t CalculateCRC16(FrameData *frame) {
+  // CRC-16/CCITT-FALSE
+  int crc = 0xFFFF;          // initial value
+  int polynomial = 0x1021;   // 0001 0000 0010 0001  (0, 5, 12)
+  int i,j;
+  uint8_t byte;
+  for (i=frame->length-CRC_SIZE;i>FRAME_START+1;i--) {
+    byte = frame->value[i-1] & 0xFF;
+    for (j=0;j<8;j++) {
+      uint8_t bit = ((byte >> (7-j) & 1) == 1);
+      uint8_t c15 = ((crc >> 15 & 1) == 1);
+      crc <<= 1;
+      if (c15 ^ bit) {
+        crc ^= polynomial;
+      }
+    }
+  }
+  crc &= 0xFFFF;
+  frame->value[frame->length-1] = crc & 0xFF;
+  frame->value[frame->length-2] = (crc >> 8) & 0xFF;
+  return crc;
+}
+
+uint16_t GetFrameCRC16(FrameData frame) {
+   return (frame.value[frame.length-1]) + (frame.value[frame.length-2] << 8);
 }
 

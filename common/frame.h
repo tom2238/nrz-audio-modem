@@ -17,6 +17,8 @@
 #define FRAME_XORMASK_LEN 64
 // Default data baud rate
 #define DATA_BAUD_RATE 4800
+// CRC size in bytes
+#define CRC_SIZE 2
 
 typedef struct {
   uint8_t value[FRAME_LEN];
@@ -43,5 +45,8 @@ void PrintFrameData(FrameData frame);
 void FrameXOR(FrameData *frame, int start);
 //
 void WriteFrameToFile(FrameData frame, FILE *fp);
-
+//
+uint16_t CalculateCRC16(FrameData *frame);
+//
+uint16_t GetFrameCRC16(FrameData frame);
 #endif // AUDIO_BIT_FRAME_H

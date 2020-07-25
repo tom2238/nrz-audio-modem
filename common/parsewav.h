@@ -36,7 +36,7 @@ unsigned int WriteWAVHeader(double tdur, WavFileInfo wavefile);
 int fwrite_int(int val, char len, FILE *p);
 //Read integer, little endian
 unsigned int fread_int(char len, FILE *p);
-//
+//Write one wav audio sample
 void WriteWAVSample(uint16_t sample, WavFileInfo wavefile);
 
 #endif // AUDIO_BIT_PARSEWAV_H
