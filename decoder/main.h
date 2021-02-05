@@ -33,6 +33,7 @@ typedef struct {
   int altdemod; // alternative demod technic
   int average; // moving average
   int printframe; // print frame to output in hex format
+  int framelength; // Set frame lenght, including head + data + ecc + crc
 }GetOptSettings;
 
 // Print help and usage of application

@@ -3,7 +3,7 @@
 #include "frame.h"
 
 WavFileInfo wavefile = {WF_SAMPLE_RATE,WF_SAMPLEBITS,WF_CHANNELS,0,0,NULL,0};
-GetOptSettings optsettings = {_ABIT_FILE_NO_SET,_ABIT_FILE_NO_SET,DATA_BAUD_RATE, WF_SAMPLE_RATE,0,0};
+GetOptSettings optsettings = {_ABIT_FILE_NO_SET,_ABIT_FILE_NO_SET,DATA_BAUD_RATE, WF_SAMPLE_RATE,0,0,256};
 FILE *InputDataFile;
 
 int main(int argc, char *argv[]) {
@@ -19,7 +19,7 @@ int main(int argc, char *argv[]) {
     }
 
     int opt = 0;
-      while ((opt = getopt(argc, argv, "ho:b:w:i:R")) != -1){
+      while ((opt = getopt(argc, argv, "ho:b:w:i:RL:")) != -1){
         switch (opt) {
         case 'h': //Help
           Usage(argv[0]);
@@ -35,19 +35,30 @@ int main(int argc, char *argv[]) {
           optsettings.baudrate = atoi(optarg);
           if(optsettings.baudrate <= 0) {
              optsettings.baudrate = (int)DATA_BAUD_RATE;
-             fprintf(stderr,"Wrong baud rate, setting to default\n");
+             fprintf(stderr,"Wrong baud rate, settings it to default.\n");
           }
           break;
         case 'w': //WAV file sample rate
           optsettings.wavsamplerate = atoi(optarg);
           if(optsettings.wavsamplerate < 8000) {
              optsettings.wavsamplerate = (int)WF_SAMPLE_RATE;
-             fprintf(stderr,"Wrong wav sample rate (min 8000), setting to default\n");
+             fprintf(stderr,"Wrong wav sample rate (minimal 8000 Hz requied), settings it to default.\n");
           }
           break;
         case 'R': //RAW output
           optsettings.rawoutput = 1;
           fprintf(stderr,"RAW output\n");
+          break;
+        case 'L': //Set frame lenght
+          optsettings.framelength = atoi(optarg);
+          if(optsettings.framelength > FRAME_LEN_MAX) {
+              fprintf(stderr,"Frame length %d is too high, maximum %d length is used now.\n",optsettings.framelength,FRAME_LEN_MAX);
+              optsettings.framelength = FRAME_LEN_MAX;
+          }
+          if(optsettings.framelength < FRAME_LEN_MIN) {
+              fprintf(stderr,"Frame length %d is too low, minimum %d length is used now.\n",optsettings.framelength,FRAME_LEN_MIN);
+              optsettings.framelength = FRAME_LEN_MIN;
+          }
           break;
         case '?': //Unknown option
           //printf("  Error: %c\n", optopt);
@@ -96,8 +107,11 @@ int main(int argc, char *argv[]) {
     fprintf(stderr,"Sample rate: %d\n",optsettings.wavsamplerate);
     fprintf(stderr,"Samples per bit: %f\n",wavefile.samples_per_bit);
 
-    float frame_time = FRAME_LEN * 8 / (float)(optsettings.baudrate);
+    float frame_time =  optsettings.framelength * 8 / (float)(optsettings.baudrate);
     fprintf(stderr,"Frame time: %f\n",frame_time);
+
+    float usefull_data_rate = (100*((float)(optsettings.framelength)-(CRC_SIZE+ECC_SIZE+HEAD_SIZE/8)))/((float)(optsettings.framelength));
+    fprintf(stderr,"Usefull data rate: %f%%\n",usefull_data_rate);
 
     if(!optsettings.rawoutput) {
       WriteWAVHeader(frame_time, wavefile);
@@ -110,7 +124,7 @@ int main(int argc, char *argv[]) {
     FrameData dataframe;
 
     while(1) {
-      dataframe = NewFrameData();
+      dataframe = NewFrameData(optsettings.framelength);
       if(optsettings.zeroframe) {
         dataframe.value[8] = (framecount >> 24) & 0xFF;
         dataframe.value[9] = (framecount >> 16) & 0xFF;
@@ -122,7 +136,7 @@ int main(int argc, char *argv[]) {
           if(strncmp(optsettings.filename,_ABIT_FILE_STDOUT,2) != 0) {
             if(!optsettings.rawoutput) {
               fseek(wavefile.fp, 0, SEEK_SET);
-              WriteWAVHeader((float)(framecount)*FRAME_LEN*8/((float)(optsettings.baudrate)),wavefile);
+              WriteWAVHeader((float)(framecount)*dataframe.length*8/((float)(optsettings.baudrate)),wavefile);
             }
           }
           break;
@@ -132,8 +146,12 @@ int main(int argc, char *argv[]) {
         }
       }
       CalculateCRC16(&dataframe);
+      // Print frame to console, delete in future, debug only
+      if(strncmp(optsettings.filename,_ABIT_FILE_STDOUT,2) != 0) {
+        PrintFrameData(dataframe);
+      }
       FrameXOR(&dataframe,0);
-      for(i=0;i<dataframe.length;i++) { // Full frame include head and CRC
+      for(i=0;i<dataframe.length;i++) { // Full frame include Head + data + CRC + ECC
         dataframe_byte = dataframe.value[i];
         for(j=0;j<8;j++) {
           dataframe_bits[j] = (dataframe_byte >> j) & 0x01;
@@ -159,15 +177,16 @@ int main(int argc, char *argv[]) {
 }
 
 void Usage(char *p_name) {
-  printf("Audio bit encoder, based on RS41\n");
-  printf("Usage: %s -o <filename> [-i <filename> -b <rate> -w <rate> -R] | -h\n",p_name);
+  printf("Audio bit encoder, based on RS41, zilog80\n");
+  printf("Usage: %s -o <filename> [-i <filename> -b <rate> -w <rate> -R -L <frame length>] | -h\n",p_name);
   printf("  -o <filename> Output WAV file\n");
   printf("  -o -          Write to stdout\n");
   printf("  -R            RAW output\n");
   printf("  -i <filename> Data file to read\n");
   printf("  -i -          Read from stdin\n");
-  printf("  -b <rate>     Signal baud rate, default 4800 b/s\n");
+  printf("  -b <rate>     Signal baud rate, default 4800 bit/s\n");
   printf("  -w <rate>     WAV file sample rate, default 24000 Hz\n");
+  printf("  -L <frm len>  Set frame lenght in bytes, including head + data + ecc + crc, default 256 bytes\n");
   printf("  -h            Show this help\n");
   printf("                Build: %s %s, GCC %s\n", __TIME__, __DATE__, __VERSION__);
   printf("Run:\n");

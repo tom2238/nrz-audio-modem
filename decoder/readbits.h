@@ -15,7 +15,7 @@ typedef struct {
   float xsum;
   float qsum;
   float mu;
-  float bvar[FRAME_LEN];
+  float bvar[FRAME_LEN_MAX];
   int bitstart;
   int par;
   int par_alt;

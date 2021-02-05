@@ -1,8 +1,10 @@
+#include <stdint.h>
+#include <stdio.h>
 #include "frame.h"
 
 //{ 0x10, 0xB6, 0xCA, 0x11, 0x22, 0x96, 0x12, 0xF8} transmitted in frame
 //{ 0x86, 0x35, 0xf4, 0x40, 0x93, 0xdf, 0x1a, 0x60} XORed in receiver
-FrameData NewFrameData(){
+FrameData NewFrameData(int frame_length){
   FrameData newframe;
   newframe.value[0] = 0x86;
   newframe.value[1] = 0x35;
@@ -12,7 +14,7 @@ FrameData NewFrameData(){
   newframe.value[5] = 0xDF;
   newframe.value[6] = 0x1A;
   newframe.value[7] = 0x60;
-  newframe.length = FRAME_LEN;
+  newframe.length = frame_length;
   int i;
   for(i=8;i<newframe.length;i++) {
     newframe.value[i] = 0;
@@ -60,7 +62,7 @@ void PrintFrameData(FrameData frame) {
   uint16_t crcrec = CalculateCRC16(&frame); // Calculate rewrite internal CRC value
   printf("%2d: ",lines);
   for(i=0;i<frame.length;i++) {
-    printf("%2X ",frame.value[i]);
+    printf("%02X ",frame.value[i]);
     if((i+1)%16==0) {
       printf("\n");
       lines++;
@@ -130,6 +132,9 @@ uint16_t CalculateCRC16(FrameData *frame) {
 }
 
 uint16_t GetFrameCRC16(FrameData frame) {
-   return (frame.value[frame.length-1]) + (frame.value[frame.length-2] << 8);
+  uint16_t lsb = frame.value[frame.length-1] & 0xFF;
+  uint16_t msb = (frame.value[frame.length-2] << 8) & 0xFF00;
+  return lsb + msb;
+  // return (frame.value[frame.length-1]) + (frame.value[frame.length-2] << 8);
 }
 

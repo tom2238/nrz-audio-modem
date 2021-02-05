@@ -26,6 +26,7 @@ typedef struct {
   int wavsamplerate; // WAV file sample rate
   int rawoutput; // RAW sound samples at output
   int zeroframe; // Without input file produce zero frames
+  int framelength; // Set frame lenght, including head + data + ecc + crc
 }GetOptSettings;
 
 // Print help and usage of application

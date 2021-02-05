@@ -3,7 +3,7 @@
 #include "readbits.h"
 #include "frame.h"
 
-GetOptSettings optsettings = {_ABIT_FILE_NO_SET,_ABIT_FILE_NO_SET,DATA_BAUD_RATE,0,0,0,0,0};
+GetOptSettings optsettings = {_ABIT_FILE_NO_SET,_ABIT_FILE_NO_SET,DATA_BAUD_RATE,0,0,0,0,0,256};
 WavFileInfo wavefile = {0,0,0,0,0,NULL,0};
 RBits readingbits;
 FrameHead bufferheader;
@@ -12,22 +12,8 @@ FILE *OutputDataFile;
 int main(int argc, char *argv[]) {
   signal(SIGINT, SignalHandler);
   signal(SIGTERM, SignalHandler);
-  char msg[255];
-  int i;
-  int bit = 0;
-  int len = 0;
-  int byte = 0;
-  int byte_count = FRAME_START;
-  int bit_count = 0;
-  int header_found = 0;
-  int frmlen = FRAME_LEN;
-  int ft_len = FRAME_LEN;
-  char bitbuf[8];
+  char msg[255];  
   OutputDataFile = NULL;
-
-  FrameData frame = NewFrameData();
-  bufferheader = NewFrameHead();
-  int sumQ = 0, bitQ = 0, Qerror_count = 0;
 
   if(argc == 1){
     Usage(argv[0]);
@@ -35,7 +21,7 @@ int main(int argc, char *argv[]) {
   }
 
   int opt = 0;
-    while ((opt = getopt(argc, argv, "hi:o:b:IRAD")) != -1){
+    while ((opt = getopt(argc, argv, "hi:o:b:IRADL:")) != -1){
       switch (opt) {
       case 'h': //Help
         Usage(argv[0]);
@@ -65,6 +51,17 @@ int main(int argc, char *argv[]) {
         break;
       case 'D': //Alternative demodulation technic
         optsettings.altdemod= 1;
+        break;
+      case 'L': //Set frame lenght
+        optsettings.framelength = atoi(optarg);
+        if(optsettings.framelength > FRAME_LEN_MAX) {
+            fprintf(stderr,"Frame length %d is too high, maximum %d length is used now.\n",optsettings.framelength,FRAME_LEN_MAX);
+            optsettings.framelength = FRAME_LEN_MAX;
+        }
+        if(optsettings.framelength < FRAME_LEN_MIN) {
+            fprintf(stderr,"Frame length %d is too low, minimum %d length is used now.\n",optsettings.framelength,FRAME_LEN_MIN);
+            optsettings.framelength = FRAME_LEN_MIN;
+        }
         break;
       case '?': //Unknown option
         //printf("  Error: %c\n", optopt);
@@ -106,6 +103,23 @@ int main(int argc, char *argv[]) {
       }
     }
 
+    // Create empty frame for recording
+    FrameData frame = NewFrameData(optsettings.framelength);
+    bufferheader = NewFrameHead();
+    int i;
+    int bit = 0;
+    int len = 0;
+    int byte = 0;
+    int byte_count = FRAME_START;
+    int bit_count = 0;
+    int header_found = 0;
+    int frmlen = frame.length;
+    int ft_len = frame.length;
+    char bitbuf[8];
+
+
+    int sumQ = 0, bitQ = 0, Qerror_count = 0;
+
     for(i=0;i<LEN_movAvg;i++) {
       readingbits.movAvg[i] = 0;
     }
@@ -140,23 +154,23 @@ int main(int argc, char *argv[]) {
     }
 
     while (!ReadBitsFSK(wavefile,optsettings,&readingbits,&bit,&len)) {
-      if (len == 0) { // reset_frame();
-        if (byte_count > pos_AUX) {    
-          bit_count = 0;
-          byte_count = FRAME_START;
-          header_found = 0;
-          FrameXOR(&frame,FRAME_START+1);
-          if(optsettings.printframe) {
-            printf("Print frame len==0\n");
-            PrintFrameData(frame);
-          }
-          else {
-            // Write frame
-            WriteFrameToFile(frame,OutputDataFile);
-          }
-        }
-        continue;
-      }
+//      if (len == 0) { // reset_frame();
+//        if (byte_count > pos_AUX) {
+//          bit_count = 0;
+//          byte_count = FRAME_START;
+//          header_found = 0;
+//          FrameXOR(&frame,FRAME_START+1);
+//          if(optsettings.printframe) {
+//            printf("Print frame len==0\n");
+//            PrintFrameData(frame);
+//          }
+//          else {
+//            // Write frame
+//            WriteFrameToFile(frame,OutputDataFile);
+//          }
+//        }
+//        continue;
+//      }
 
       for (i = 0; i < len; i++) {
         IncHeadPos(&bufferheader);
@@ -219,7 +233,7 @@ int main(int argc, char *argv[]) {
             readingbits.bvar[byte_count] = readingbits.qsum/(float)readingbits.Nvar - readingbits.mu*readingbits.mu;
             frame.value[byte_count] = readingbits.bvar[byte_count];
 
-            if (byte_count > FRAME_LEN) {  // Errors only from minimal framelen counts
+            if (byte_count > frame.length) {  // Errors only from minimal framelen counts
               //ratioQ = sumQ/samples_per_bit; // approx: with noise zeroX / byte unfortunately not linear in sample_rate
               //if (ratioQ > 0.7) {            // sr=48k: 0.7, Threshold, from when probably noise bit
               if (readingbits.bvar[byte_count]*2 > readingbits.bvar[byte_count-300]*3) { // Var(frame)/Var(noise) ca. 1:2
@@ -262,12 +276,13 @@ int main(int argc, char *argv[]) {
 
 void Usage(char *p_name) {
   printf("Audio bit decoder, based on RS41\n");
-  printf("Usage: %s (-i <filename> -o <filename> [-IRAD] -b <rate>)| -h\n",p_name);
+  printf("Usage: %s -i <filename> [-o <filename> -IRAD -b <rate> -L <frame length> ]| -h\n",p_name);
   printf("  -i <filename> Input 8 or 16 bit WAV file\n");
   printf("  -i -          Read from stdin\n");
   printf("  -o <filename> Output data file\n");
   printf("  -o -          Write to stdout\n");
   printf("  -b <rate>     Signal baud rate, default 4800\n");
+  printf("  -L <frm len>  Set frame lenght in bytes, including head + data + ecc + crc, default 256 bytes\n");
   printf("  -I            Inverse signal\n");
   printf("  -R            Better bit resolution\n");
   printf("  -A            Average decoding\n");
