@@ -8,6 +8,7 @@
 
 ### Programs help:
 * Decoder
+```
 	Audio bit decoder, based on RS41
 	Usage: ./decoder -i <filename> [-o <filename> -IRAD -b <rate> -L <frame length> ]| -h
 	  -i <filename> Input 8 or 16 bit WAV file
@@ -24,8 +25,10 @@
 	                Build: 19:38:55 Feb  5 2021, GCC 5.3.0
 	Run:
 	sox -t pulseaudio default -t wav - 2>/dev/null | ./decoder -i -
+```
 	
 * Encoder
+```
 	Audio bit encoder, based on RS41
 	Usage: ./encoder -o <filename> [-i <filename> -b <rate> -w <rate> -R -L <frame length>] | -h
 	  -o <filename> Output WAV file
@@ -40,7 +43,7 @@
 	                Build: 19:38:55 Feb  5 2021, GCC 5.3.0
 	Run:
 	./encoder -o - -b 4800 -w 44100 | sox --ignore-length - -t wav - fir gauss2.4.txt  | play -t wav -
-	
+```	
 
 ## TODO
 * Implement Manchester code
