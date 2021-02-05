@@ -159,7 +159,7 @@ int main(int argc, char *argv[]) {
 //          bit_count = 0;
 //          byte_count = FRAME_START;
 //          header_found = 0;
-//          FrameXOR(&frame,FRAME_START+1);
+//          FrameXOR(&frame,FRAME_START);
 //          if(optsettings.printframe) {
 //            printf("Print frame len==0\n");
 //            PrintFrameData(frame);
@@ -197,7 +197,7 @@ int main(int argc, char *argv[]) {
             if (byte_count == frmlen) {
               byte_count = FRAME_START;
               header_found = 0;
-              FrameXOR(&frame,FRAME_START+1);
+              FrameXOR(&frame,FRAME_START);
               if(optsettings.printframe) {
                 printf("Print frame after count==frmlen\n");
                 PrintFrameData(frame);
@@ -247,7 +247,7 @@ int main(int argc, char *argv[]) {
           Qerror_count += 1;
         }
         header_found = 0;
-        FrameXOR(&frame,FRAME_START+1);
+        FrameXOR(&frame,FRAME_START);
         if(optsettings.printframe) {
           printf("Print frame altdemod\n");
           PrintFrameData(frame);
