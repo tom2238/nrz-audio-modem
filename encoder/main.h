@@ -27,6 +27,7 @@ typedef struct {
   int rawoutput; // RAW sound samples at output
   int zeroframe; // Without input file produce zero frames
   int framelength; // Set frame lenght, including head + data + ecc + crc
+  unsigned char frame_modulation; // Set frame modulation, Manchester or NRZ
 }GetOptSettings;
 
 // Print help and usage of application

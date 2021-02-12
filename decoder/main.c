@@ -3,7 +3,7 @@
 #include "readbits.h"
 #include "frame.h"
 
-GetOptSettings optsettings = {_ABIT_FILE_NO_SET,_ABIT_FILE_NO_SET,DATA_BAUD_RATE,0,0,0,0,0,256};
+GetOptSettings optsettings = {_ABIT_FILE_NO_SET,_ABIT_FILE_NO_SET,DATA_BAUD_RATE,0,0,0,0,0,FRAME_DEFAULT_LEN,FRAME_MOD_NRZ};
 WavFileInfo wavefile = {0,0,0,0,0,NULL,0};
 RBits readingbits;
 FrameHead bufferheader;
@@ -21,7 +21,7 @@ int main(int argc, char *argv[]) {
   }
 
   int opt = 0;
-    while ((opt = getopt(argc, argv, "hi:o:b:IRADL:")) != -1){
+    while ((opt = getopt(argc, argv, "hi:o:b:IMRADL:")) != -1){
       switch (opt) {
       case 'h': //Help
         Usage(argv[0]);
@@ -43,6 +43,9 @@ int main(int argc, char *argv[]) {
       case 'I': //Inverse signal
         optsettings.inverse = 1;
         break;
+      case 'M': //Use Manchester frame modulation
+        optsettings.frame_modulation = FRAME_MOD_MAN;
+        break;
       case 'R': //Better bit resolution
         optsettings.resolution = 1;
         break;
@@ -53,15 +56,7 @@ int main(int argc, char *argv[]) {
         optsettings.altdemod= 1;
         break;
       case 'L': //Set frame lenght
-        optsettings.framelength = atoi(optarg);
-        if(optsettings.framelength > FRAME_LEN_MAX) {
-            fprintf(stderr,"Frame length %d is too high, maximum %d length is used now.\n",optsettings.framelength,FRAME_LEN_MAX);
-            optsettings.framelength = FRAME_LEN_MAX;
-        }
-        if(optsettings.framelength < FRAME_LEN_MIN) {
-            fprintf(stderr,"Frame length %d is too low, minimum %d length is used now.\n",optsettings.framelength,FRAME_LEN_MIN);
-            optsettings.framelength = FRAME_LEN_MIN;
-        }
+        optsettings.framelength = atoi(optarg) + HEAD_SIZE + ECC_SIZE + CRC_SIZE;
         break;
       case '?': //Unknown option
         //printf("  Error: %c\n", optopt);
@@ -103,9 +98,29 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    // Create empty frame for recording
-    FrameData frame = NewFrameData(optsettings.framelength);
-    bufferheader = NewFrameHead();
+    if(optsettings.frame_modulation == FRAME_MOD_MAN) {
+      if(optsettings.framelength > FRAME_LEN_MAX/2) {
+        fprintf(stderr,"Frame length %d is too long for Manchester, maximum %d length is used now.\n",optsettings.framelength,FRAME_LEN_MAX/2);
+        optsettings.framelength = FRAME_LEN_MAX/2;
+      }
+    } else {
+      if(optsettings.framelength > FRAME_LEN_MAX) {
+        fprintf(stderr,"Frame length %d is too long, maximum %d length is used now.\n",optsettings.framelength,FRAME_LEN_MAX);
+        optsettings.framelength = FRAME_LEN_MAX;
+      }
+    }
+    if(optsettings.framelength < FRAME_LEN_MIN) {
+        fprintf(stderr,"Frame length %d is too low, minimum %d length is used now.\n",optsettings.framelength,FRAME_LEN_MIN);
+        optsettings.framelength = FRAME_LEN_MIN;
+    }
+    if(optsettings.frame_modulation == FRAME_MOD_MAN) { // Reserve space for Manchester code in frame
+        optsettings.framelength = (optsettings.framelength*2)-HEAD_SIZE;
+    }
+
+    // Create new empty frame
+    FrameData frame = NewFrameData(optsettings.framelength,optsettings.frame_modulation);
+    bufferheader = NewFrameHead(optsettings.frame_modulation);
+
     int i;
     int bit = 0;
     int len = 0;
@@ -113,11 +128,9 @@ int main(int argc, char *argv[]) {
     int byte_count = FRAME_START;
     int bit_count = 0;
     int header_found = 0;
-    int frmlen = frame.length;
-    int ft_len = frame.length;
+    int frmlen = optsettings.framelength;//frame.length;
+    //int ft_len = frame.length;
     char bitbuf[8];
-
-
     int sumQ = 0, bitQ = 0, Qerror_count = 0;
 
     for(i=0;i<LEN_movAvg;i++) {
@@ -172,6 +185,8 @@ int main(int argc, char *argv[]) {
 //        continue;
 //      }
 
+
+
       for (i = 0; i < len; i++) {
         IncHeadPos(&bufferheader);
         bufferheader.value[bufferheader.position] = 0x30 + bit;  // Ascii
@@ -197,7 +212,13 @@ int main(int argc, char *argv[]) {
             if (byte_count == frmlen) {
               byte_count = FRAME_START;
               header_found = 0;
-              FrameXOR(&frame,FRAME_START);
+
+              if(optsettings.frame_modulation == FRAME_MOD_MAN) {
+                FrameManchesterDecode(&frame,FRAME_START+1); // Decode Manchester frame
+              } else {
+                FrameXOR(&frame,FRAME_START); // XORing NRZ frame
+              }
+
               if(optsettings.printframe) {
                 printf("Print frame after count==frmlen\n");
                 PrintFrameData(frame);
@@ -206,6 +227,7 @@ int main(int argc, char *argv[]) {
                 // Write frame
                 WriteFrameToFile(frame,OutputDataFile);
               }
+              frame.length = optsettings.framelength;
             }
           }
         }
@@ -214,7 +236,7 @@ int main(int argc, char *argv[]) {
         readingbits.bitstart = 1;
         sumQ = 0;
         Qerror_count = 0;
-        ft_len = frmlen;
+        //ft_len = frmlen;
 
         while ( byte_count < frmlen ) {
           bitQ = ReadRawbit(wavefile,optsettings,&readingbits,&bit); // return: zeroX/bit (oder alternativ Varianz/bit)
@@ -243,7 +265,7 @@ int main(int argc, char *argv[]) {
             sumQ = 0; // Fenster fuer zeroXcount: 8 bit
             byte_count++;
           }
-          ft_len = byte_count;
+          //ft_len = byte_count;
           Qerror_count += 1;
         }
         header_found = 0;
@@ -276,14 +298,15 @@ int main(int argc, char *argv[]) {
 
 void Usage(char *p_name) {
   printf("Audio bit decoder, based on RS41\n");
-  printf("Usage: %s -i <filename> [-o <filename> -IRAD -b <rate> -L <frame length> ]| -h\n",p_name);
+  printf("Usage: %s -i <filename> [-o <filename> -IRAD -b <rate> -M -L <frame length> ]| -h\n",p_name);
   printf("  -i <filename> Input 8 or 16 bit WAV file\n");
   printf("  -i -          Read from stdin\n");
   printf("  -o <filename> Output data file\n");
   printf("  -o -          Write to stdout\n");
   printf("  -b <rate>     Signal baud rate, default 4800\n");
-  printf("  -L <frm len>  Set frame lenght in bytes, including head + data + ecc + crc, default 256 bytes\n");
+  printf("  -L <frm len>  Set usefull data lenght in bytes, default 256 bytes, minimum 8\n");
   printf("  -I            Inverse signal\n");
+  printf("  -M            Use Manchester coding, default is NRZ\n");
   printf("  -R            Better bit resolution\n");
   printf("  -A            Average decoding\n");
   printf("  -D            Alternative demodulation technic\n");
@@ -309,22 +332,4 @@ void SignalHandler(int number) {
    }
    fprintf(stderr,"abort\n");
    exit(ABIT_ERROR_SIGNAL);
-}
-
-int Bits2Byte(char bits[]) {
-    int i, byteval=0, d=1;
-    for (i = 0; i < 8; i++) {     // little endian
-    /* for (i = 7; i >= 0; i--) { // big endian */
-        if      (bits[i] == 1)  {
-            byteval += d;
-        }
-        else if (bits[i] == 0)  {
-            byteval += 0;
-        }
-        else {
-            return 0x100;
-        }
-        d <<= 1;
-    }
-    return byteval;
 }

@@ -1,20 +1,45 @@
 #include <stdint.h>
 #include <stdio.h>
 #include "frame.h"
-
+// NRZ
 //{ 0x10, 0xB6, 0xCA, 0x11, 0x22, 0x96, 0x12, 0xF8} transmitted in frame
-//{ 0x86, 0x35, 0xf4, 0x40, 0x93, 0xdf, 0x1a, 0x60} XORed in receiver
-FrameData NewFrameData(int frame_length){
+//{ 0x86, 0x35, 0xF4, 0x40, 0x93, 0xDF, 0x1A, 0x60} XORed in receiver
+// Manchester
+//{ 0x9A, 0x99, 0x99, 0x99, 0xA9, 0x6D, 0x55, 0x55} transmitted in frame
+// No XORing, scrambling
+FrameData NewFrameData(int frame_length, unsigned char modulation){
   FrameData newframe;
-  newframe.value[0] = 0x86;
-  newframe.value[1] = 0x35;
-  newframe.value[2] = 0xF4;
-  newframe.value[3] = 0x40;
-  newframe.value[4] = 0x93;
-  newframe.value[5] = 0xDF;
-  newframe.value[6] = 0x1A;
-  newframe.value[7] = 0x60;
+  newframe.modulation = modulation;
+  if(newframe.modulation == FRAME_MOD_NRZ) {
+      newframe.value[0] = 0x86;
+      newframe.value[1] = 0x35;
+      newframe.value[2] = 0xF4;
+      newframe.value[3] = 0x40;
+      newframe.value[4] = 0x93;
+      newframe.value[5] = 0xDF;
+      newframe.value[6] = 0x1A;
+      newframe.value[7] = 0x60;
+  } else if (newframe.modulation == FRAME_MOD_MAN) {
+      newframe.value[0] = 0x9A;
+      newframe.value[1] = 0x99;
+      newframe.value[2] = 0x99;
+      newframe.value[3] = 0x99;
+      newframe.value[4] = 0xA9;
+      newframe.value[5] = 0x6D;
+      newframe.value[6] = 0x55;
+      newframe.value[7] = 0x55;
+  } else {
+      newframe.value[0] = 0x00;
+      newframe.value[1] = 0x00;
+      newframe.value[2] = 0x00;
+      newframe.value[3] = 0x00;
+      newframe.value[4] = 0x00;
+      newframe.value[5] = 0x00;
+      newframe.value[6] = 0x00;
+      newframe.value[7] = 0x00;
+  }
   newframe.length = frame_length;
+
   int i;
   for(i=8;i<newframe.length;i++) {
     newframe.value[i] = 0;
@@ -22,10 +47,17 @@ FrameData NewFrameData(int frame_length){
   return newframe;
 }
 
-FrameHead NewFrameHead() {
+FrameHead NewFrameHead(unsigned char modulation) {
   FrameHead newhead;
-  newhead.header = "0000100001101101010100111000100001000100011010010100100000011111";
+  newhead.modulation = modulation;
+  // little endian
+  // NRZ header
+  newhead.header =    "0000100001101101010100111000100001000100011010010100100000011111";
+  // little endian
+  // Manchester header  01->1,10->0
+  newhead.header_mc = "0101100110011001100110011001100110010101101101101010101010101010";
   newhead.position = -1;
+
   int i;
   for(i=0;i<HEAD_LEN+1;i++) {
     newhead.value[i] = 'x';
@@ -45,8 +77,14 @@ int FrameHeadCompare(FrameHead head) {
       if (j < 0) {
         j = HEAD_LEN-1;
       }
-      if (head.value[j] != head.header[HEAD_OFS+HEAD_LEN-1-i]) {
-        break;
+      if(head.modulation == FRAME_MOD_NRZ) {
+        if (head.value[j] != head.header[HEAD_OFS+HEAD_LEN-1-i]) {
+          break;
+        }
+      } else {
+        if (head.value[j] != head.header_mc[HEAD_OFS+HEAD_LEN-1-i]) {
+          break;
+        }
       }
       j--;
       i++;
@@ -138,3 +176,112 @@ uint16_t GetFrameCRC16(FrameData frame) {
   // return (frame.value[frame.length-1]) + (frame.value[frame.length-2] << 8);
 }
 
+int FrameManchesterEncode(FrameData *frame, int start) {
+  int i,j;
+  int ManFramePosition = FRAME_START+1;
+  int ManBitPosition = 0;
+  char Manbitbuf[8];
+  uint8_t ManByte;
+  uint8_t byte;
+  uint8_t frame_bits[8];
+  FrameData ManEncode = NewFrameData(frame->length*2, FRAME_MOD_MAN);
+  //printf("Manchester frame len: %d\n",ManEncode.length);
+  for(i=start;i<frame->length;i++) {
+    byte = frame->value[i];
+    for(j=0;j<8;j++) {
+      frame_bits[j] = (byte >> j) & 0x01;
+      // Manchester  01->1,10->0
+      if(frame_bits[j] == 1) { // Bit Is 1
+        Manbitbuf[ManBitPosition] = 0;
+        ManBitPosition++;
+        Manbitbuf[ManBitPosition] = 1;
+        ManBitPosition++;
+      } else { // Bit Is 0
+        Manbitbuf[ManBitPosition] = 1;
+        ManBitPosition++;
+        Manbitbuf[ManBitPosition] = 0;
+        ManBitPosition++;
+      }
+      if(ManBitPosition >= 8) {
+        ManByte = (uint8_t)Bits2Byte(Manbitbuf);
+        ManBitPosition = 0;
+        ManEncode.value[ManFramePosition] = ManByte;
+        ManFramePosition++;
+      }
+    }
+  }
+  // Rewrite frame
+  frame->length = (frame->length*2)-HEAD_SIZE;
+  frame->modulation = FRAME_MOD_MAN;
+  for(i=0;i<frame->length;i++){
+    frame->value[i] = ManEncode.value[i];
+  }
+
+  return 0;
+}
+
+int FrameManchesterDecode(FrameData *frame, int start) {
+  int i,j;
+  int DataFramePosition = start;
+  int DataBitPosition = 0;
+  unsigned int errorCount = 0;
+  char Databitbuf[8];
+  uint8_t DataByte;
+  uint8_t byte;
+  uint8_t frame_bits[8];
+  uint8_t symbolCounter = 0;
+  uint8_t symbolCode[2];
+  FrameData DataDecode = NewFrameData(frame->length, FRAME_MOD_MAN);
+  for(i=start;i<frame->length;i++) {
+    byte = frame->value[i];
+    for(j=0;j<8;j++) {
+      frame_bits[j] = (byte >> j) & 0x01;
+      // Manchester  01->1,10->0
+      symbolCode[symbolCounter] = frame_bits[j];
+      symbolCounter++;
+      if(symbolCounter >= 2) {
+        if(symbolCode[0]==0 && symbolCode[1]==1) { // Decoded 1
+           Databitbuf[DataBitPosition] = 1;
+        } else if (symbolCode[0]==1 && symbolCode[1]==0) { // Decoded 0
+           Databitbuf[DataBitPosition] = 0;
+        } else { // Some error, one symbol shift or isnot manchester
+           Databitbuf[DataBitPosition] = 0;
+           errorCount++;
+        }
+        DataBitPosition++;
+        symbolCounter = 0;
+      }
+      if(DataBitPosition >= 8) {
+        DataByte = (uint8_t)Bits2Byte(Databitbuf);
+        DataBitPosition = 0;
+        DataDecode.value[DataFramePosition] = DataByte;
+        DataFramePosition++;
+      }
+    }
+  }
+  // Rewrite frame
+  frame->length = (frame->length+HEAD_SIZE)/2;
+  frame->modulation = FRAME_MOD_NRZ;
+  for(i=0;i<frame->length;i++){
+    frame->value[i] = DataDecode.value[i];
+  }
+  return errorCount;
+}
+
+int Bits2Byte(char bits[]) {
+    int i, byteval=0, d=1;
+    for (i = 0; i < 8; i++) {     // little endian
+    /* for (i = 7; i >= 0; i--) { // big endian */
+        if      (bits[i] == 1)  {
+            byteval += d;
+        }
+        else if (bits[i] == 0)  {
+            byteval += 0;
+        }
+        else {
+            return 0x100;
+        }
+        d <<= 1;
+    }
+    return byteval;
+}

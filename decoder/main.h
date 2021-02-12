@@ -34,13 +34,12 @@ typedef struct {
   int average; // moving average
   int printframe; // print frame to output in hex format
   int framelength; // Set frame lenght, including head + data + ecc + crc
+  unsigned char frame_modulation; // Set frame modulation, Manchester or NRZ
 }GetOptSettings;
 
 // Print help and usage of application
 void Usage(char *p_name);
 // Signal handler
 void SignalHandler(int number);
-// Convert 8 bits into one byte
-int Bits2Byte(char bits[]);
 
 #endif // AUDIO_BIT_MAIN_H

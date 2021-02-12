@@ -2,22 +2,12 @@
 #define AUDIO_BIT_FRAME_H
 
 // Frame and header
-
-// *OLD //
-//#define HEAD_OFS 24 // HEADOFS+HEADLEN <= 64
-//#define HEAD_LEN 32 // HEADOFS+HEADLEN mod 8 = 0
-//#define FRAME_START ((HEAD_OFS+HEAD_LEN)/8)
-
-// *NEW //
 #define HEAD_OFS 0 // HEADOFS+HEADLEN <= 64
 #define HEAD_LEN 56 // HEADOFS+HEADLEN mod 8 = 0, in bits
 #define FRAME_START ((HEAD_OFS+HEAD_LEN)/8)
 #define HEAD_SIZE 8 // Head size in bytes
 
-//#define pos_AUX       0x12B // obsolote
 // Data and frame length
-//#define NDATA_LEN 320                    // std framelen 320
-//#define XDATA_LEN 198
 #define FRAME_LEN_MAX 1024  // max framelen 1024
 #define FRAME_LEN_MIN 18    // HEAD(8) + DATA(8) + ECC(0) + CRC(2)
 // Scrambler mask length
@@ -28,23 +18,30 @@
 #define CRC_SIZE 2
 // Reed Solomon ECC size in bytes
 #define ECC_SIZE 0
-
+// Used frame modulation
+#define FRAME_MOD_NRZ 0x1
+#define FRAME_MOD_MAN 0x2
+// Default frame lenght including HEAD + DATA + ECC + CRC
+#define FRAME_DEFAULT_LEN 256
 
 typedef struct {
   uint8_t value[FRAME_LEN_MAX];
   int length;
+  unsigned char modulation;
 }FrameData;
 
 typedef struct {
-  char *header;
+  char *header; // NRZ
+  char *header_mc; // Manchester2: 01->1,10->0
   char value[HEAD_LEN+1];
   int position;
+  unsigned char modulation;
 }FrameHead;
 
 // Create new empty frame
-FrameData NewFrameData(int frame_length);
-//
-FrameHead NewFrameHead();
+FrameData NewFrameData(int frame_length, unsigned char modulation);
+// Create new empty frame head
+FrameHead NewFrameHead(unsigned char modulation);
 //
 void IncHeadPos(FrameHead *incpos);
 //
@@ -59,4 +56,10 @@ void WriteFrameToFile(FrameData frame, FILE *fp);
 uint16_t CalculateCRC16(FrameData *frame);
 //
 uint16_t GetFrameCRC16(FrameData frame);
+//
+int FrameManchesterEncode(FrameData *frame, int start);
+//
+int FrameManchesterDecode(FrameData *frame, int start);
+// Convert 8 bits into one byte
+int Bits2Byte(char bits[]);
 #endif // AUDIO_BIT_FRAME_H
