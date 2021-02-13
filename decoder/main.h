@@ -30,7 +30,6 @@ typedef struct {
   int baudrate; // Data baud rate
   int inverse; // inverted signal
   int resolution; // more accurate bit measurement
-  int altdemod; // alternative demod technic
   int average; // moving average
   int printframe; // print frame to output in hex format
   int framelength; // Set frame lenght, including head + data + ecc + crc

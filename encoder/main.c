@@ -167,21 +167,13 @@ int main(int argc, char *argv[]) {
       CalculateCRC16(&dataframe);
       // Print frame to console, delete in future, debug only
       if(strncmp(optsettings.filename,_ABIT_FILE_STDOUT,2) != 0) { // Is True
-        /*printf("Original frame:\n");*/
         PrintFrameData(dataframe);
-        /*FrameManchesterEncode(&dataframe,FRAME_START+1);
-        printf("Manchester frame:\n");
-        PrintFrameData(dataframe);
-        printf("Erc: %d \t",FrameManchesterDecode(&dataframe,FRAME_START+1));
-        printf("Decoded frame:\n");
-        PrintFrameData(dataframe); */
       }
       if(optsettings.frame_modulation == FRAME_MOD_MAN) {
         FrameManchesterEncode(&dataframe,FRAME_START+1); // Make Manchester frame
       } else {
         FrameXOR(&dataframe,0);  // XORing NRZ frame
       }
-      fprintf(stderr,"Frame lenght %d\n",dataframe.length);
       for(i=0;i<dataframe.length;i++) { // Full frame include Head + data + CRC + ECC
         dataframe_byte = dataframe.value[i];
         for(j=0;j<8;j++) {
@@ -208,17 +200,17 @@ int main(int argc, char *argv[]) {
 }
 
 void Usage(char *p_name) {
-  printf("Audio bit encoder\n");
+  printf("Audio NRZ/Manchester encoder\n");
   printf("Usage: %s -o <filename> [-i <filename> -b <rate> -w <rate> -M -R -L <frame length>] | -h\n",p_name);
-  printf("  -o <filename> Output WAV file\n");
-  printf("  -o -          Write to stdout\n");
-  printf("  -R            RAW output\n");
-  printf("  -M            Use Manchester coding, default is NRZ\n");
   printf("  -i <filename> Data file to read\n");
   printf("  -i -          Read from stdin\n");
+  printf("  -o <filename> Output WAV file\n");
+  printf("  -o -          Write to stdout\n");
   printf("  -b <rate>     Signal baud rate, default 4800 bit/s\n");
-  printf("  -w <rate>     WAV file sample rate, default 24000 Hz\n");
   printf("  -L <frm len>  Set usefull data lenght in bytes, default %d bytes, minimum 8\n",FRAME_DEFAULT_LEN-(HEAD_SIZE+ECC_SIZE+CRC_SIZE));
+  printf("  -M            Use Manchester coding, default is NRZ\n");
+  printf("  -R            RAW output\n");
+  printf("  -w <rate>     WAV file sample rate, default 24000 Hz\n");
   printf("  -h            Show this help\n");
   printf("                Build: %s %s, GCC %s\n", __TIME__, __DATE__, __VERSION__);
   printf("Run:\n");

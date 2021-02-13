@@ -45,7 +45,6 @@ int ReadBitsFSK(WavFileInfo wave, GetOptSettings setup, RBits *databits ,int *bi
 
 int ReadSignedSample(WavFileInfo wave, GetOptSettings setup, RBits *databits) {  // int = i32_t
     int byte, i, sample=0, s=0;     // EOF -> 0x1000000
-    float x=0, x0=0;
 
     for (i = 0; i < wave.channels; i++) { // i = 0: links bzw. mono
         byte = fgetc(wave.fp);
@@ -71,17 +70,6 @@ int ReadSignedSample(WavFileInfo wave, GetOptSettings setup, RBits *databits) { 
     }
     if (wave.bits_sample == 16) {
       s = (short)sample;
-    }
-    if (setup.altdemod)
-    {
-        x = s/128.0;
-        if (wave.bits_sample == 16) {
-            x /= 256.0;
-        }
-        databits->bufvar[databits->sample_count % databits->Nvar] = x;
-        x0 = databits->bufvar[(databits->sample_count+1) % databits->Nvar];
-        databits->xsum = databits->xsum - x0 + x;
-        databits->qsum = databits->qsum - x0*x0 + x*x;
     }
 
     if (setup.average) {

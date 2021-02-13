@@ -3,7 +3,7 @@
 #include "readbits.h"
 #include "frame.h"
 
-GetOptSettings optsettings = {_ABIT_FILE_NO_SET,_ABIT_FILE_NO_SET,DATA_BAUD_RATE,0,0,0,0,0,FRAME_DEFAULT_LEN,FRAME_MOD_NRZ};
+GetOptSettings optsettings = {_ABIT_FILE_NO_SET,_ABIT_FILE_NO_SET,DATA_BAUD_RATE,0,0,0,0,FRAME_DEFAULT_LEN,FRAME_MOD_NRZ};
 WavFileInfo wavefile = {0,0,0,0,0,NULL,0};
 RBits readingbits;
 FrameHead bufferheader;
@@ -21,7 +21,7 @@ int main(int argc, char *argv[]) {
   }
 
   int opt = 0;
-    while ((opt = getopt(argc, argv, "hi:o:b:IMRADL:")) != -1){
+    while ((opt = getopt(argc, argv, "hi:o:b:IMRAL:")) != -1){
       switch (opt) {
       case 'h': //Help
         Usage(argv[0]);
@@ -51,9 +51,6 @@ int main(int argc, char *argv[]) {
         break;
       case 'A': //Average decoding
         optsettings.average = 1;
-        break;
-      case 'D': //Alternative demodulation technic
-        optsettings.altdemod= 1;
         break;
       case 'L': //Set frame lenght
         optsettings.framelength = atoi(optarg) + HEAD_SIZE + ECC_SIZE + CRC_SIZE;
@@ -130,8 +127,7 @@ int main(int argc, char *argv[]) {
     int header_found = 0;
     int frmlen = optsettings.framelength;//frame.length;
     //int ft_len = frame.length;
-    char bitbuf[8];
-    int sumQ = 0, bitQ = 0, Qerror_count = 0;
+    char bitbuf[8];   
 
     for(i=0;i<LEN_movAvg;i++) {
       readingbits.movAvg[i] = 0;
@@ -154,18 +150,6 @@ int main(int argc, char *argv[]) {
       exit(wavefile.ret);
     }
 
-    // Reading part
-    if (optsettings.altdemod) {
-        readingbits.Nvar = 32*wavefile.samples_per_bit;
-        readingbits.bufvar = (float *)calloc( readingbits.Nvar+1, sizeof(float));
-        if (readingbits.bufvar == NULL) {
-          return ABIT_ERROR_CALLOC;
-        }
-        for (i = 0; i < readingbits.Nvar; i++) {
-          readingbits.bufvar[i] = 0;
-        }
-    }
-
     while (!ReadBitsFSK(wavefile,optsettings,&readingbits,&bit,&len)) {
 //      if (len == 0) { // reset_frame();
 //        if (byte_count > pos_AUX) {
@@ -184,8 +168,6 @@ int main(int argc, char *argv[]) {
 //        }
 //        continue;
 //      }
-
-
 
       for (i = 0; i < len; i++) {
         IncHeadPos(&bufferheader);
@@ -232,60 +214,6 @@ int main(int argc, char *argv[]) {
           }
         }
       }
-      if (header_found && optsettings.altdemod) {
-        readingbits.bitstart = 1;
-        sumQ = 0;
-        Qerror_count = 0;
-        //ft_len = frmlen;
-
-        while ( byte_count < frmlen ) {
-          bitQ = ReadRawbit(wavefile,optsettings,&readingbits,&bit); // return: zeroX/bit (oder alternativ Varianz/bit)
-          if ( bitQ == EOF) {
-            break;
-          }
-          sumQ += bitQ; // zeroX/byte
-          bitbuf[bit_count] = bit;
-          bit_count++;
-          if (bit_count == 8) {
-            bit_count = 0;
-            byte = Bits2Byte(bitbuf);
-            //frame.value[byte_count] = byte;
-
-            readingbits.mu = readingbits.xsum/(float)readingbits.Nvar;
-            readingbits.bvar[byte_count] = readingbits.qsum/(float)readingbits.Nvar - readingbits.mu*readingbits.mu;
-            frame.value[byte_count] = readingbits.bvar[byte_count];
-
-            if (byte_count > frame.length) {  // Errors only from minimal framelen counts
-              //ratioQ = sumQ/samples_per_bit; // approx: with noise zeroX / byte unfortunately not linear in sample_rate
-              //if (ratioQ > 0.7) {            // sr=48k: 0.7, Threshold, from when probably noise bit
-              if (readingbits.bvar[byte_count]*2 > readingbits.bvar[byte_count-300]*3) { // Var(frame)/Var(noise) ca. 1:2
-                Qerror_count += 1;
-              }
-            }
-            sumQ = 0; // Fenster fuer zeroXcount: 8 bit
-            byte_count++;
-          }
-          //ft_len = byte_count;
-          Qerror_count += 1;
-        }
-        header_found = 0;
-        FrameXOR(&frame,FRAME_START);
-        if(optsettings.printframe) {
-          printf("Print frame altdemod\n");
-          PrintFrameData(frame);
-        }
-        else {
-          // Write frame
-          WriteFrameToFile(frame,OutputDataFile);
-        }
-        byte_count = FRAME_START;
-      }
-    }
-    if (optsettings.altdemod) {
-      if (readingbits.bufvar)  {
-        free(readingbits.bufvar);
-        readingbits.bufvar = NULL;
-      }
     }
     if(wavefile.fp != NULL) {
       fclose(wavefile.fp);
@@ -297,19 +225,18 @@ int main(int argc, char *argv[]) {
 }
 
 void Usage(char *p_name) {
-  printf("Audio bit decoder, based on RS41\n");
-  printf("Usage: %s -i <filename> [-o <filename> -IRAD -b <rate> -M -L <frame length> ]| -h\n",p_name);
+  printf("Audio NRZ/Manchester decoder\n");
+  printf("Usage: %s -i <filename> [-o <filename> -IRA -b <rate> -M -L <frame length> ]| -h\n",p_name);
   printf("  -i <filename> Input 8 or 16 bit WAV file\n");
   printf("  -i -          Read from stdin\n");
   printf("  -o <filename> Output data file\n");
   printf("  -o -          Write to stdout\n");
   printf("  -b <rate>     Signal baud rate, default 4800\n");
-  printf("  -L <frm len>  Set usefull data lenght in bytes, default 256 bytes, minimum 8\n");
-  printf("  -I            Inverse signal\n");
+  printf("  -L <frm len>  Set usefull data lenght in bytes, default %d bytes, minimum 8\n",FRAME_DEFAULT_LEN-(HEAD_SIZE+ECC_SIZE+CRC_SIZE));
   printf("  -M            Use Manchester coding, default is NRZ\n");
+  printf("  -I            Inverse signal\n");  
   printf("  -R            Better bit resolution\n");
   printf("  -A            Average decoding\n");
-  printf("  -D            Alternative demodulation technic\n");
   printf("  -h            Show this help\n");
   printf("                Build: %s %s, GCC %s\n", __TIME__, __DATE__, __VERSION__);
   printf("Run:\n");
@@ -318,12 +245,6 @@ void Usage(char *p_name) {
 
 void SignalHandler(int number) {
    fprintf(stderr,"\nCaught signal %d ... ", number);
-   if (optsettings.altdemod) {
-     if (readingbits.bufvar)  {
-       free(readingbits.bufvar);
-       readingbits.bufvar = NULL;
-     }
-   }
    if(wavefile.fp != NULL) {
      fclose(wavefile.fp);
    }
