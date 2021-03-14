@@ -125,7 +125,7 @@ int main(int argc, char *argv[]) {
     float frame_time =  optsettings.framelength * 8 / (float)(optsettings.baudrate);
     fprintf(stderr,"Frame time: %f\n",frame_time);
 
-    float usefull_data_rate = (100*((float)(optsettings.framelength)-(CRC_SIZE+ECC_SIZE+HEAD_SIZE/8)))/((float)(optsettings.framelength));
+    float usefull_data_rate = (100*((float)(optsettings.framelength)-(CRC_SIZE+ECC_SIZE+HEAD_SIZE)))/((float)(optsettings.framelength));
     fprintf(stderr,"Usefull data rate: %f%%\n",usefull_data_rate);
 
     if(!optsettings.rawoutput) {

@@ -9,6 +9,9 @@ RBits readingbits;
 FrameHead bufferheader;
 FILE *OutputDataFile;
 
+// Debug printf
+#define _PRG_DEBUG
+
 int main(int argc, char *argv[]) {
   signal(SIGINT, SignalHandler);
   signal(SIGTERM, SignalHandler);
@@ -177,7 +180,9 @@ int main(int argc, char *argv[]) {
           if (FrameHeadCompare(bufferheader) >= HEAD_LEN) {
             header_found = 1;
             if(optsettings.printframe) {
-              printf("Header found\n");
+              #ifdef _PRG_DEBUG
+                printf("Header found\n");
+              #endif
             }
           }
         }
@@ -202,8 +207,12 @@ int main(int argc, char *argv[]) {
               }
 
               if(optsettings.printframe) {
-                printf("Print frame after count==frmlen\n");
-                PrintFrameData(frame);
+                #ifdef _PRG_DEBUG
+                  printf("Print frame after count==frmlen\n");
+                  PrintFrameData(frame);
+                #else
+                  PrintFrame_STM32(frame);
+                #endif
               }
               else {
                 // Write frame

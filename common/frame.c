@@ -116,8 +116,49 @@ void PrintFrameData(FrameData frame) {
   printf("CRC(rt) %x : %x\n",crcrec,crctrs);
 }
 
+void PrintFrame_STM32(FrameData frame) {
+  // Calculate CRC
+  uint16_t crctrs = GetFrameCRC16(frame);
+  uint16_t crcrec = CalculateCRC16(&frame); // Calculate rewrite internal CRC value
+  // Get values from STM32
+  // Current frame number
+  unsigned int stm_frame_count = 0;
+  stm_frame_count = (frame.value[8]) << 8;
+  stm_frame_count += (frame.value[9]) << 8;
+  stm_frame_count += (frame.value[10]) << 8;
+  stm_frame_count += (frame.value[11]) << 0;
+  // ADC Vref voltage in milivolts
+  uint16_t stm_adc_vref = 0;
+  stm_adc_vref = (frame.value[12]) << 8;
+  stm_adc_vref += (frame.value[13]) << 0;
+  float stm_adc_vref_f = (float)(stm_adc_vref) / 1000; // In volts
+  // ADC voltage on channel 0, pin PA0 in milivolts
+  uint16_t stm_adc_ch0 = 0;
+  stm_adc_ch0 = (frame.value[14]) << 8;
+  stm_adc_ch0 += (frame.value[15]) << 0;
+  float stm_adc_ch0_f = (float)(stm_adc_ch0) / 1000; // In volts
+  // ADC MCU temperature in centi celsius degree
+  uint16_t stm_adc_temp = 0;
+  stm_adc_temp = (frame.value[16]) << 8;
+  stm_adc_temp += (frame.value[17]) << 0;
+  float stm_adc_temp_f = (float)(stm_adc_temp) / 100; // In deg C
+  // ADC MCU supply voltage in milivolts
+  uint16_t stm_adc_supply = 0;
+  stm_adc_supply = (frame.value[18]) << 8;
+  stm_adc_supply += (frame.value[19]) << 0;
+  float stm_adc_supply_f = (float)(stm_adc_supply) / 1000; // In volts
+  fprintf(stdout,"[%d], Power supply: %.3f V, Reference: %.3f V, ADC channel 0: %.3f V, MCU temperature: %.1f °C, ",stm_frame_count,stm_adc_supply_f,stm_adc_vref_f,stm_adc_ch0_f,stm_adc_temp_f);
+  // Check CRC value
+  if(crcrec==crctrs) {
+    printf("[CRC OK]\n");
+  }
+  else {
+    printf("[CRC FAIL]\n");
+  }
+}
+
 void FrameXOR(FrameData *frame, int start) {
-  uint8_t mask[FRAME_XORMASK_LEN] = { 0x96, 0x83, 0x3E, 0x51, 0xB1, 0x49, 0x08, 0x98,
+  const uint8_t mask[FRAME_XORMASK_LEN] = { 0x96, 0x83, 0x3E, 0x51, 0xB1, 0x49, 0x08, 0x98,
                                       0x32, 0x05, 0x59, 0x0E, 0xF9, 0x44, 0xC6, 0x26,
                                       0x21, 0x60, 0xC2, 0xEA, 0x79, 0x5D, 0x6D, 0xA1,
                                       0x54, 0x69, 0x47, 0x0C, 0xDC, 0xE8, 0x5C, 0xF1,

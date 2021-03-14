@@ -49,6 +49,8 @@ int FrameHeadCompare(FrameHead head);
 //
 void PrintFrameData(FrameData frame);
 //
+void PrintFrame_STM32(FrameData frame);
+//
 void FrameXOR(FrameData *frame, int start);
 //
 void WriteFrameToFile(FrameData frame, FILE *fp);
