@@ -250,6 +250,7 @@ void Usage(char *p_name) {
   printf("                Build: %s %s, GCC %s\n", __TIME__, __DATE__, __VERSION__);
   printf("Run:\n");
   printf("sox -t pulseaudio default -t wav - 2>/dev/null | ./decoder -i -\n");
+  printf("Decoder is under test with STM32 Blue pill board and Si5351 transmitter\n");
 }
 
 void SignalHandler(int number) {
