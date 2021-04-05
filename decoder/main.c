@@ -3,14 +3,14 @@
 #include "readbits.h"
 #include "frame.h"
 
-GetOptSettings optsettings = {_ABIT_FILE_NO_SET,_ABIT_FILE_NO_SET,DATA_BAUD_RATE,0,0,0,0,FRAME_DEFAULT_LEN,FRAME_MOD_NRZ};
+GetOptSettings optsettings = {_ABIT_FILE_NO_SET,_ABIT_FILE_NO_SET,DATA_BAUD_RATE,0,0,0,0,FRAME_DEFAULT_LEN,FRAME_MOD_NRZ,0};
 WavFileInfo wavefile = {0,0,0,0,0,NULL,0};
 RBits readingbits;
 FrameHead bufferheader;
 FILE *OutputDataFile;
 
 // Debug printf
-#define _PRG_DEBUG
+//#define _PRG_DEBUG
 
 int main(int argc, char *argv[]) {
   signal(SIGINT, SignalHandler);
@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
   }
 
   int opt = 0;
-    while ((opt = getopt(argc, argv, "hi:o:b:IMRAL:")) != -1){
+    while ((opt = getopt(argc, argv, "hi:o:b:IMRAL:P:")) != -1){
       switch (opt) {
       case 'h': //Help
         Usage(argv[0]);
@@ -57,6 +57,9 @@ int main(int argc, char *argv[]) {
         break;
       case 'L': //Set frame lenght
         optsettings.framelength = atoi(optarg) + HEAD_SIZE + ECC_SIZE + CRC_SIZE;
+        break;
+      case 'P': //Printing mode function (hex, stm32 ...)
+        optsettings.printmode = atoi(optarg);
         break;
       case '?': //Unknown option
         //printf("  Error: %c\n", optopt);
@@ -211,7 +214,15 @@ int main(int argc, char *argv[]) {
                   printf("Print frame after count==frmlen\n");
                   PrintFrameData(frame);
                 #else
-                  PrintFrame_STM32(frame);
+                  // Select printing mode
+                  switch (optsettings.printmode) {
+                  case 1: // Print packet from STM32 blue pill test
+                    PrintFrame_STM32(frame);
+                    break;
+                  case 0: // Zero or default is hex output
+                  default:
+                    PrintFrameData(frame);
+                  }
                 #endif
               }
               else {
@@ -246,6 +257,9 @@ void Usage(char *p_name) {
   printf("  -I            Inverse signal\n");  
   printf("  -R            Better bit resolution\n");
   printf("  -A            Average decoding\n");
+  printf("  -P <mode>     Frame printing mode number\n");
+  printf("                0 - HEX frame output, default\n");
+  printf("                1 - Decoding from STM32 bluepill test\n");
   printf("  -h            Show this help\n");
   printf("                Build: %s %s, GCC %s\n", __TIME__, __DATE__, __VERSION__);
   printf("Run:\n");

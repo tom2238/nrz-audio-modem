@@ -5,6 +5,7 @@
 * Using same header as RS41 for NRZ, for Manchester use extended header Manchester header (similar to DFM)
 * File > Encoder > Transmission line + noise > Decoder > File
 * Eg. Arduino > RF modulator from STB > Transmission line + noise > RTL-SDR > Decoder > collectd > RRD Graphs
+* Eg. RS41 radiosonde > Transmission line + noise > RTL-SDR > nrz-audio-modem
 * Manchester from NRZ is coded like: 01->1,10->0 , Maybe it is inverted if my system use little endian byte order. (I'm not sure now.)
 
 ### Frame structure
@@ -50,10 +51,14 @@ Usage: ./decoder -i <filename> [-o <filename> -IRA -b <rate> -M -L <frame length
   -I            Inverse signal
   -R            Better bit resolution
   -A            Average decoding
+  -P <mode>     Frame printing mode number
+                0 - HEX frame output, default
+                1 - Decoding from STM32 bluepill test
   -h            Show this help
-                Build: 13:51:44 Feb 13 2021, GCC 5.3.0
+                Build: 21:11:11 Apr  5 2021, GCC 5.3.0
 Run:
 sox -t pulseaudio default -t wav - 2>/dev/null | ./decoder -i -
+Decoder is under test with STM32 Blue pill board and Si5351 transmitter
 ```
 	
 * Encoder
@@ -79,5 +84,5 @@ Run:
 * Implement Manchester code => Finished
 * Add Reed Solomon ECC
 * Better header detection
-* Create some Arduino encoder sketch sending small data packet (like temperature)
+* Create some Arduino encoder sketch sending small data packet (like temperature) => Finished https://github.com/tom2238/radiosonde_hacking/tree/main/rs41
 * Some bugs and features :-)

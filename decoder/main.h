@@ -34,6 +34,7 @@ typedef struct {
   int printframe; // print frame to output in hex format
   int framelength; // Set frame lenght, including head + data + ecc + crc
   unsigned char frame_modulation; // Set frame modulation, Manchester or NRZ
+  int printmode; // Printing mode
 }GetOptSettings;
 
 // Print help and usage of application
