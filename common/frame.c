@@ -123,8 +123,8 @@ void PrintFrame_STM32(FrameData frame) {
   // Get values from STM32
   // Current frame number
   unsigned int stm_frame_count = 0;
-  stm_frame_count = (frame.value[8]) << 8;
-  stm_frame_count += (frame.value[9]) << 8;
+  stm_frame_count = (frame.value[8]) << 24;
+  stm_frame_count += (frame.value[9]) << 16;
   stm_frame_count += (frame.value[10]) << 8;
   stm_frame_count += (frame.value[11]) << 0;
   // ADC Vref voltage in milivolts
