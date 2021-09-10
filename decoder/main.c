@@ -3,7 +3,7 @@
 #include "readbits.h"
 #include "frame.h"
 
-GetOptSettings optsettings = {_ABIT_FILE_NO_SET,_ABIT_FILE_NO_SET,DATA_BAUD_RATE,0,0,0,0,FRAME_DEFAULT_LEN,FRAME_MOD_NRZ,0};
+GetOptSettings optsettings = {_ABIT_FILE_NO_SET,_ABIT_FILE_NO_SET,DATA_BAUD_RATE,0,0,0,0,FRAME_DEFAULT_LEN,FRAME_MOD_NRZ,0,0};
 WavFileInfo wavefile = {0,0,0,0,0,NULL,0};
 RBits readingbits;
 FrameHead bufferheader;
@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
   }
 
   int opt = 0;
-    while ((opt = getopt(argc, argv, "hi:o:b:IMRAL:P:")) != -1){
+    while ((opt = getopt(argc, argv, "hi:o:b:IMRAL:P:F:")) != -1){
       switch (opt) {
       case 'h': //Help
         Usage(argv[0]);
@@ -60,6 +60,9 @@ int main(int argc, char *argv[]) {
         break;
       case 'P': //Printing mode function (hex, stm32 ...)
         optsettings.printmode = atoi(optarg);
+        break;
+      case 'F': //Reed-Solomon coding level
+        optsettings.ecc_code = atoi(optarg);
         break;
       case '?': //Unknown option
         //printf("  Error: %c\n", optopt);
@@ -101,6 +104,32 @@ int main(int argc, char *argv[]) {
       }
     }
 
+    // Set Reed-Solomon parity size
+    switch (optsettings.ecc_code) {
+      case 6: // Level 6 = (255,207)
+        optsettings.ecc_code = 48;
+        break;
+      case 5: // Level 5 = (255,215)
+        optsettings.ecc_code = 40;
+        break;
+      case 4: // Level 4 = (255,223)
+        optsettings.ecc_code = 32;
+        break;
+      case 3: // Level 3 = (255,231)
+        optsettings.ecc_code = 24;
+        break;
+      case 2: // Level 2 = (255,239)
+        optsettings.ecc_code = 16;
+        break;
+      case 1: // Level 1 = (255,247)
+        optsettings.ecc_code = 8;
+        break;
+      default: // Level 0 = uncoded
+        optsettings.ecc_code = 0;
+    }
+    // Add ECC into frame length
+    optsettings.framelength += optsettings.ecc_code;
+    // Check frame length
     if(optsettings.frame_modulation == FRAME_MOD_MAN) {
       if(optsettings.framelength > FRAME_LEN_MAX/2) {
         fprintf(stderr,"Frame length %d is too long for Manchester, maximum %d length is used now.\n",optsettings.framelength,FRAME_LEN_MAX/2);
@@ -113,7 +142,7 @@ int main(int argc, char *argv[]) {
       }
     }
     if(optsettings.framelength < FRAME_LEN_MIN) {
-        fprintf(stderr,"Frame length %d is too low, minimum %d length is used now.\n",optsettings.framelength,FRAME_LEN_MIN);
+        fprintf(stderr,"Frame length %d is too short, minimum %d length is used now.\n",optsettings.framelength,FRAME_LEN_MIN);
         optsettings.framelength = FRAME_LEN_MIN;
     }
     if(optsettings.frame_modulation == FRAME_MOD_MAN) { // Reserve space for Manchester code in frame
@@ -212,16 +241,16 @@ int main(int argc, char *argv[]) {
               if(optsettings.printframe) {
                 #ifdef _PRG_DEBUG
                   printf("Print frame after count==frmlen\n");
-                  PrintFrameData(frame);
+                  PrintFrameData(frame,optsettings.ecc_code);
                 #else
                   // Select printing mode
                   switch (optsettings.printmode) {
                   case 1: // Print packet from STM32 blue pill test
-                    PrintFrame_STM32(frame);
+                    PrintFrame_STM32(frame,optsettings.ecc_code);
                     break;
                   case 0: // Zero or default is hex output
                   default:
-                    PrintFrameData(frame);
+                    PrintFrameData(frame,optsettings.ecc_code);
                   }
                 #endif
               }
@@ -246,13 +275,15 @@ int main(int argc, char *argv[]) {
 
 void Usage(char *p_name) {
   printf("Audio NRZ/Manchester decoder\n");
-  printf("Usage: %s -i <filename> [-o <filename> -IRA -b <rate> -M -L <frame length> ]| -h\n",p_name);
+  printf("Usage: %s -i <filename> [-o <filename> -IRA -b <rate> -M -L <frame length> ] -F <RS level> | -h\n",p_name);
   printf("  -i <filename> Input 8 or 16 bit WAV file\n");
   printf("  -i -          Read from stdin\n");
   printf("  -o <filename> Output data file\n");
   printf("  -o -          Write to stdout\n");
   printf("  -b <rate>     Signal baud rate, default 4800\n");
-  printf("  -L <frm len>  Set usefull data lenght in bytes, default %d bytes, minimum 8\n",FRAME_DEFAULT_LEN-(HEAD_SIZE+ECC_SIZE+CRC_SIZE));
+  printf("  -L <frm len>  Set usefull data lenght in bytes, default %d bytes, minimum 8\n",FRAME_DEFAULT_LEN-(HEAD_SIZE+optsettings.ecc_code+CRC_SIZE));
+  printf("  -F <RS level> Check Reed-Solomon parity bytes: 0 = uncoded (default), 1 = (255,247), 2 = (255,239)\n");
+  printf("                3 = (255,231), 4 = (255,223), 5 = (255,215), 6 = (255,207)\n");
   printf("  -M            Use Manchester coding, default is NRZ\n");
   printf("  -I            Inverse signal\n");  
   printf("  -R            Better bit resolution\n");

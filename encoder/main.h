@@ -28,6 +28,7 @@ typedef struct {
   int zeroframe; // Without input file produce zero frames
   int framelength; // Set frame lenght, including head + data + ecc + crc
   unsigned char frame_modulation; // Set frame modulation, Manchester or NRZ
+  int ecc_code; // Number of parity bytes, Reed-Solomon
 }GetOptSettings;
 
 // Print help and usage of application

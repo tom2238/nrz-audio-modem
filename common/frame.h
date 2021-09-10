@@ -16,7 +16,7 @@
 #define DATA_BAUD_RATE 4800
 // CRC size in bytes
 #define CRC_SIZE 2
-// Reed Solomon ECC size in bytes
+// Reed Solomon ECC size in bytes, default value
 #define ECC_SIZE 0
 // Used frame modulation
 #define FRAME_MOD_NRZ 0x1
@@ -47,17 +47,17 @@ void IncHeadPos(FrameHead *incpos);
 //
 int FrameHeadCompare(FrameHead head);
 //
-void PrintFrameData(FrameData frame);
+void PrintFrameData(FrameData frame, int ecc_size_bytes);
 //
-void PrintFrame_STM32(FrameData frame);
+void PrintFrame_STM32(FrameData frame, int ecc_size_bytes);
 //
 void FrameXOR(FrameData *frame, int start);
 //
 void WriteFrameToFile(FrameData frame, FILE *fp);
 //
-uint16_t CalculateCRC16(FrameData *frame);
+uint16_t Frame_CalculateCRC16(FrameData *frame, int ecc_size_bytes);
 //
-uint16_t GetFrameCRC16(FrameData frame);
+uint16_t Frame_GetCRC16(FrameData frame, int ecc_size_bytes);
 //
 int FrameManchesterEncode(FrameData *frame, int start);
 //

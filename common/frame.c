@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include "frame.h"
+#include "ssfrs.h"
 // NRZ
 //{ 0x10, 0xB6, 0xCA, 0x11, 0x22, 0x96, 0x12, 0xF8} transmitted in frame
 //{ 0x86, 0x35, 0xF4, 0x40, 0x93, 0xDF, 0x1A, 0x60} XORed in receiver
@@ -93,11 +94,11 @@ int FrameHeadCompare(FrameHead head) {
     return i;
 }
 
-void PrintFrameData(FrameData frame) {
+void PrintFrameData(FrameData frame, int ecc_size_bytes) {
   int i;
   int lines = 0;
-  uint16_t crctrs = GetFrameCRC16(frame);
-  uint16_t crcrec = CalculateCRC16(&frame); // Calculate rewrite internal CRC value
+  uint16_t crctrs = Frame_GetCRC16(frame,ecc_size_bytes);
+  uint16_t crcrec = Frame_CalculateCRC16(&frame,ecc_size_bytes); // Calculate rewrite internal CRC value
   printf("%2d: ",lines);
   for(i=0;i<frame.length;i++) {
     printf("%02X ",frame.value[i]);
@@ -116,10 +117,10 @@ void PrintFrameData(FrameData frame) {
   printf("CRC(rt) %x : %x\n",crcrec,crctrs);
 }
 
-void PrintFrame_STM32(FrameData frame) {
+void PrintFrame_STM32(FrameData frame,int ecc_size_bytes) {
   // Calculate CRC
-  uint16_t crctrs = GetFrameCRC16(frame);
-  uint16_t crcrec = CalculateCRC16(&frame); // Calculate rewrite internal CRC value
+  uint16_t crctrs = Frame_GetCRC16(frame,ecc_size_bytes);
+  uint16_t crcrec = Frame_CalculateCRC16(&frame,ecc_size_bytes); // Calculate rewrite internal CRC value
   // Get values from STM32
   // Current frame number
   unsigned int stm_frame_count = 0;
@@ -187,13 +188,13 @@ void WriteFrameToFile(FrameData frame, FILE *fp) {
   }
 }
 
-uint16_t CalculateCRC16(FrameData *frame) {
+uint16_t Frame_CalculateCRC16(FrameData *frame, int ecc_size_bytes) {
   // CRC-16/CCITT-FALSE
   int crc = 0xFFFF;          // initial value
   int polynomial = 0x1021;   // 0001 0000 0010 0001  (0, 5, 12)
   int i,j;
   uint8_t byte;
-  for (i=frame->length-CRC_SIZE;i>FRAME_START+1;i--) {
+  for (i=frame->length-CRC_SIZE-ecc_size_bytes;i>FRAME_START+1;i--) {
     byte = frame->value[i-1] & 0xFF;
     for (j=0;j<8;j++) {
       uint8_t bit = ((byte >> (7-j) & 1) == 1);
@@ -205,14 +206,14 @@ uint16_t CalculateCRC16(FrameData *frame) {
     }
   }
   crc &= 0xFFFF;
-  frame->value[frame->length-1] = crc & 0xFF;
-  frame->value[frame->length-2] = (crc >> 8) & 0xFF;
+  frame->value[frame->length-1-ecc_size_bytes] = crc & 0xFF;
+  frame->value[frame->length-2-ecc_size_bytes] = (crc >> 8) & 0xFF;
   return crc;
 }
 
-uint16_t GetFrameCRC16(FrameData frame) {
-  uint16_t lsb = frame.value[frame.length-1] & 0xFF;
-  uint16_t msb = (frame.value[frame.length-2] << 8) & 0xFF00;
+uint16_t Frame_GetCRC16(FrameData frame, int ecc_size_bytes) {
+  uint16_t lsb = frame.value[frame.length-1-ecc_size_bytes] & 0xFF;
+  uint16_t msb = (frame.value[frame.length-2-ecc_size_bytes] << 8) & 0xFF00;
   return lsb + msb;
   // return (frame.value[frame.length-1]) + (frame.value[frame.length-2] << 8);
 }

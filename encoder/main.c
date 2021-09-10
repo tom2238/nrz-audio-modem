@@ -3,7 +3,7 @@
 #include "frame.h"
 
 WavFileInfo wavefile = {WF_SAMPLE_RATE,WF_SAMPLEBITS,WF_CHANNELS,0,0,NULL,0};
-GetOptSettings optsettings = {_ABIT_FILE_NO_SET,_ABIT_FILE_NO_SET,DATA_BAUD_RATE, WF_SAMPLE_RATE,0,0,FRAME_DEFAULT_LEN,FRAME_MOD_NRZ};
+GetOptSettings optsettings = {_ABIT_FILE_NO_SET,_ABIT_FILE_NO_SET,DATA_BAUD_RATE, WF_SAMPLE_RATE,0,0,FRAME_DEFAULT_LEN,FRAME_MOD_NRZ,0};
 FILE *InputDataFile;
 
 int main(int argc, char *argv[]) {
@@ -19,7 +19,7 @@ int main(int argc, char *argv[]) {
     }
 
     int opt = 0;
-      while ((opt = getopt(argc, argv, "ho:b:w:i:MRL:")) != -1){
+      while ((opt = getopt(argc, argv, "ho:b:w:i:MRL:F:")) != -1){
         switch (opt) {
         case 'h': //Help
           Usage(argv[0]);
@@ -54,6 +54,9 @@ int main(int argc, char *argv[]) {
           break;
         case 'L': //Set frame lenght
           optsettings.framelength = atoi(optarg) + HEAD_SIZE + ECC_SIZE + CRC_SIZE;
+          break;
+        case 'F': //Reed-Solomon coding level
+          optsettings.ecc_code = atoi(optarg);
           break;
         case '?': //Unknown option
           //printf("  Error: %c\n", optopt);
@@ -98,6 +101,32 @@ int main(int argc, char *argv[]) {
     wavefile.sample_rate = optsettings.wavsamplerate;
     wavefile.samples_per_bit = (float)optsettings.wavsamplerate/(float)optsettings.baudrate;
 
+    // Set Reed-Solomon parity size
+    switch (optsettings.ecc_code) {
+      case 6: // Level 6 = (255,207)
+        optsettings.ecc_code = 48;
+        break;
+      case 5: // Level 5 = (255,215)
+        optsettings.ecc_code = 40;
+        break;
+      case 4: // Level 4 = (255,223)
+        optsettings.ecc_code = 32;
+        break;
+      case 3: // Level 3 = (255,231)
+        optsettings.ecc_code = 24;
+        break;
+      case 2: // Level 2 = (255,239)
+        optsettings.ecc_code = 16;
+        break;
+      case 1: // Level 1 = (255,247)
+        optsettings.ecc_code = 8;
+        break;
+      default: // Level 0 = uncoded
+        optsettings.ecc_code = 0;
+    }
+    // Add ECC into frame length
+    optsettings.framelength += optsettings.ecc_code;
+    // Check frame length
     if(optsettings.frame_modulation == FRAME_MOD_MAN) {
       if(optsettings.framelength > FRAME_LEN_MAX/2) {
         fprintf(stderr,"Frame length %d is too long for Manchester, maximum %d length is used now.\n",optsettings.framelength,FRAME_LEN_MAX/2);
@@ -110,7 +139,7 @@ int main(int argc, char *argv[]) {
       }
     }
     if(optsettings.framelength < FRAME_LEN_MIN) {
-        fprintf(stderr,"Frame length %d is too low, minimum %d length is used now.\n",optsettings.framelength,FRAME_LEN_MIN);
+        fprintf(stderr,"Frame length %d is too short, minimum %d length is used now.\n",optsettings.framelength,FRAME_LEN_MIN);
         optsettings.framelength = FRAME_LEN_MIN;
     }
 
@@ -118,14 +147,14 @@ int main(int argc, char *argv[]) {
     fprintf(stderr,"Sample rate: %d\n",optsettings.wavsamplerate);
     fprintf(stderr,"Samples per bit: %f\n",wavefile.samples_per_bit);
     fprintf(stderr,"CRC size: %d bits\n",CRC_SIZE*8);
-    fprintf(stderr,"ECC size: %d bits\n",ECC_SIZE*8);
+    fprintf(stderr,"ECC size: %d bits\n",optsettings.ecc_code*8);
     fprintf(stderr,"Header size: %d bits\n",HEAD_SIZE*8);
     fprintf(stderr,"Frame size: %d bits\n",optsettings.framelength*8);
 
     float frame_time =  optsettings.framelength * 8 / (float)(optsettings.baudrate);
     fprintf(stderr,"Frame time: %f\n",frame_time);
 
-    float usefull_data_rate = (100*((float)(optsettings.framelength)-(CRC_SIZE+ECC_SIZE+HEAD_SIZE)))/((float)(optsettings.framelength));
+    float usefull_data_rate = (100*((float)(optsettings.framelength)-(CRC_SIZE+optsettings.ecc_code+HEAD_SIZE)))/((float)(optsettings.framelength));
     fprintf(stderr,"Usefull data rate: %f%%\n",usefull_data_rate);
 
     if(!optsettings.rawoutput) {
@@ -160,14 +189,14 @@ int main(int argc, char *argv[]) {
           }
           break;
         }
-        for(i=FRAME_START+1;i<dataframe.length-CRC_SIZE;i++) {
+        for(i=FRAME_START+1;i<dataframe.length-(CRC_SIZE+optsettings.ecc_code);i++) {
           dataframe.value[i] = (uint8_t)(fread_int(1,InputDataFile) & 0xFF);
         }
       }
-      CalculateCRC16(&dataframe);
+      Frame_CalculateCRC16(&dataframe,optsettings.ecc_code);
       // Print frame to console, delete in future, debug only
       if(strncmp(optsettings.filename,_ABIT_FILE_STDOUT,2) != 0) { // Is True
-        PrintFrameData(dataframe);
+        PrintFrameData(dataframe,optsettings.ecc_code);
       }
       if(optsettings.frame_modulation == FRAME_MOD_MAN) {
         FrameManchesterEncode(&dataframe,FRAME_START+1); // Make Manchester frame
@@ -201,13 +230,15 @@ int main(int argc, char *argv[]) {
 
 void Usage(char *p_name) {
   printf("Audio NRZ/Manchester encoder\n");
-  printf("Usage: %s -o <filename> [-i <filename> -b <rate> -w <rate> -M -R -L <frame length>] | -h\n",p_name);
+  printf("Usage: %s -o <filename> [-i <filename> -b <rate> -w <rate> -M -R -L <frame length>] -F <RS level> | -h\n",p_name);
   printf("  -i <filename> Data file to read\n");
   printf("  -i -          Read from stdin\n");
   printf("  -o <filename> Output WAV file\n");
   printf("  -o -          Write to stdout\n");
   printf("  -b <rate>     Signal baud rate, default 4800 bit/s\n");
-  printf("  -L <frm len>  Set usefull data lenght in bytes, default %d bytes, minimum 8\n",FRAME_DEFAULT_LEN-(HEAD_SIZE+ECC_SIZE+CRC_SIZE));
+  printf("  -L <frm len>  Set usefull data lenght in bytes, default %d bytes, minimum 8\n",FRAME_DEFAULT_LEN-(HEAD_SIZE+optsettings.ecc_code+CRC_SIZE));
+  printf("  -F <RS level> Add Reed-Solomon parity bytes: 0 = uncoded (default), 1 = (255,247), 2 = (255,239)\n");
+  printf("                3 = (255,231), 4 = (255,223), 5 = (255,215), 6 = (255,207)\n");
   printf("  -M            Use Manchester coding, default is NRZ\n");
   printf("  -R            RAW output\n");
   printf("  -w <rate>     WAV file sample rate, default 24000 Hz\n");

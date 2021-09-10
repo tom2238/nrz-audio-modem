@@ -35,18 +35,31 @@ HEAD = "0101100110011001100110011001100110010101101101101010101010101010"
 Total: 352 bits -> 44 bytes
 
 ```
+### Reed-Solomon ECC
+Future support for codes:
+* RS(255,247)
+* RS(255,239)
+* RS(255,231)
+* RS(255,223)
+* RS(255,215)
+* RS(255,207)
+
+Reed-Solomon coder and decoder is taken from https://github.com/supurloop/ssf. Galois Field GF(2^8). Maximum RS block size is 255 bytes (message + parity).
+
 
 ### Programs help:
 * Decoder
 ```
 Audio NRZ/Manchester decoder
-Usage: ./decoder -i <filename> [-o <filename> -IRA -b <rate> -M -L <frame length> ]| -h
+Usage: ../decoder/decoder -i <filename> [-o <filename> -IRA -b <rate> -M -L <frame length> ] -F <RS level> | -h
   -i <filename> Input 8 or 16 bit WAV file
   -i -          Read from stdin
   -o <filename> Output data file
   -o -          Write to stdout
   -b <rate>     Signal baud rate, default 4800
   -L <frm len>  Set usefull data lenght in bytes, default 246 bytes, minimum 8
+  -F <RS level> Check Reed-Solomon parity bytes: 0 = uncoded (default), 1 = (255,247), 2 = (255,239)
+                3 = (255,231), 4 = (255,223), 5 = (255,215), 6 = (255,207)
   -M            Use Manchester coding, default is NRZ
   -I            Inverse signal
   -R            Better bit resolution
@@ -55,7 +68,7 @@ Usage: ./decoder -i <filename> [-o <filename> -IRA -b <rate> -M -L <frame length
                 0 - HEX frame output, default
                 1 - Decoding from STM32 bluepill test
   -h            Show this help
-                Build: 21:11:11 Apr  5 2021, GCC 5.3.0
+                Build: 21:21:53 Sep 10 2021, GCC 5.3.0
 Run:
 sox -t pulseaudio default -t wav - 2>/dev/null | ./decoder -i -
 Decoder is under test with STM32 Blue pill board and Si5351 transmitter
@@ -64,18 +77,20 @@ Decoder is under test with STM32 Blue pill board and Si5351 transmitter
 * Encoder
 ```
 Audio NRZ/Manchester encoder
-Usage: ./encoder -o <filename> [-i <filename> -b <rate> -w <rate> -M -R -L <frame length>] | -h
+Usage: ./encoder -o <filename> [-i <filename> -b <rate> -w <rate> -M -R -L <frame length>] -F <RS level> | -h
   -i <filename> Data file to read
   -i -          Read from stdin
   -o <filename> Output WAV file
   -o -          Write to stdout
   -b <rate>     Signal baud rate, default 4800 bit/s
   -L <frm len>  Set usefull data lenght in bytes, default 246 bytes, minimum 8
+  -F <RS level> Add Reed-Solomon parity bytes: 0 = uncoded (default), 1 = (255,247), 2 = (255,239)
+                3 = (255,231), 4 = (255,223), 5 = (255,215), 6 = (255,207)
   -M            Use Manchester coding, default is NRZ
   -R            RAW output
   -w <rate>     WAV file sample rate, default 24000 Hz
   -h            Show this help
-                Build: 13:51:44 Feb 13 2021, GCC 5.3.0
+                Build: 21:17:30 Sep 10 2021, GCC 5.3.0
 Run:
 ./encoder -o - -b 4800 -w 44100 | sox --ignore-length - -t wav - fir gauss2.4.txt  | play -t wav -
 ```	
