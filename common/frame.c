@@ -117,7 +117,7 @@ void PrintFrameData(FrameData frame, int ecc_size_bytes) {
   printf("CRC(rt) %x : %x\n",crcrec,crctrs);
 }
 
-void PrintFrame_STM32(FrameData frame,int ecc_size_bytes) {
+void PrintFrame_STM32(FrameData frame, int ecc_size_bytes) {
   // Calculate CRC
   uint16_t crctrs = Frame_GetCRC16(frame,ecc_size_bytes);
   uint16_t crcrec = Frame_CalculateCRC16(&frame,ecc_size_bytes); // Calculate rewrite internal CRC value
@@ -326,4 +326,12 @@ int Bits2Byte(char bits[]) {
         d <<= 1;
     }
     return byteval;
+}
+
+uint8_t Frame_CheckRSLimit(uint16_t msg_len, uint16_t parity_len) {
+    if((msg_len + parity_len) > FRAME_SSF_RS_TOTAL_CHUNK_LIMIT) {
+        return 1;
+    } else {
+        return 0;
+    }
 }

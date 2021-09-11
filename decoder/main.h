@@ -22,6 +22,7 @@
 #define ABIT_ERROR_SIGNAL 1
 #define ABIT_ERROR_FILENOSET 2
 #define ABIT_ERROR_FILEOPEN 3
+#define ABIT_ERROR_FRAME_LENGTH 4
 #define ABIT_ERROR_CALLOC 6
 
 typedef struct {

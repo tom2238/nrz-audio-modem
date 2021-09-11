@@ -64,4 +64,6 @@ int FrameManchesterEncode(FrameData *frame, int start);
 int FrameManchesterDecode(FrameData *frame, int start);
 // Convert 8 bits into one byte
 int Bits2Byte(char bits[]);
+//
+uint8_t Frame_CheckRSLimit(uint16_t msg_len, uint16_t parity_len);
 #endif // AUDIO_BIT_FRAME_H

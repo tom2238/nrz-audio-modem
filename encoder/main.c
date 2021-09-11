@@ -126,21 +126,50 @@ int main(int argc, char *argv[]) {
     }
     // Add ECC into frame length
     optsettings.framelength += optsettings.ecc_code;
+    // Check ECC max size
+    if((Frame_CheckRSLimit(optsettings.framelength-HEAD_SIZE-optsettings.ecc_code,optsettings.ecc_code)) && (optsettings.ecc_code!=0)) {
+        fprintf(stderr,"Error: Frame length %d is too long for Reed-Solomon coding. Please limit in: DATA(%d) + CRC(%d) + PARITY(%d) <= 255 bytes.\n",optsettings.framelength,optsettings.framelength-HEAD_SIZE-CRC_SIZE-optsettings.ecc_code,CRC_SIZE,optsettings.ecc_code);
+        if(wavefile.fp != NULL) {
+          fclose(wavefile.fp);
+        }
+        if(InputDataFile != NULL) {
+          fclose(InputDataFile);
+        }
+        exit(ABIT_ERROR_FRAME_LENGTH);
+    }
     // Check frame length
     if(optsettings.frame_modulation == FRAME_MOD_MAN) {
       if(optsettings.framelength > FRAME_LEN_MAX/2) {
-        fprintf(stderr,"Frame length %d is too long for Manchester, maximum %d length is used now.\n",optsettings.framelength,FRAME_LEN_MAX/2);
-        optsettings.framelength = FRAME_LEN_MAX/2;
+        fprintf(stderr,"Error: Frame length %d is too long for Manchester. Maximum frame length: %d bytes.\n",optsettings.framelength,FRAME_LEN_MAX/2);
+        if(wavefile.fp != NULL) {
+          fclose(wavefile.fp);
+        }
+        if(InputDataFile != NULL) {
+          fclose(InputDataFile);
+        }
+        exit(ABIT_ERROR_FRAME_LENGTH);
       }
     } else {
       if(optsettings.framelength > FRAME_LEN_MAX) {
-        fprintf(stderr,"Frame length %d is too long, maximum %d length is used now.\n",optsettings.framelength,FRAME_LEN_MAX);
-        optsettings.framelength = FRAME_LEN_MAX;
+        fprintf(stderr,"Error: Frame length %d is too long. Maximum frame length: %d bytes.\n",optsettings.framelength,FRAME_LEN_MAX);
+        if(wavefile.fp != NULL) {
+          fclose(wavefile.fp);
+        }
+        if(InputDataFile != NULL) {
+          fclose(InputDataFile);
+        }
+        exit(ABIT_ERROR_FRAME_LENGTH);
       }
     }
     if(optsettings.framelength < FRAME_LEN_MIN) {
-        fprintf(stderr,"Frame length %d is too short, minimum %d length is used now.\n",optsettings.framelength,FRAME_LEN_MIN);
-        optsettings.framelength = FRAME_LEN_MIN;
+        fprintf(stderr,"Error: Frame length %d is too short. Minimum frame length is %d bytes.\n",optsettings.framelength,FRAME_LEN_MIN);
+        if(wavefile.fp != NULL) {
+          fclose(wavefile.fp);
+        }
+        if(InputDataFile != NULL) {
+          fclose(InputDataFile);
+        }
+        exit(ABIT_ERROR_FRAME_LENGTH);
     }
 
     fprintf(stderr,"Baud rate: %d\n",optsettings.baudrate);
@@ -230,7 +259,7 @@ int main(int argc, char *argv[]) {
 
 void Usage(char *p_name) {
   printf("Audio NRZ/Manchester encoder\n");
-  printf("Usage: %s -o <filename> [-i <filename> -b <rate> -w <rate> -M -R -L <frame length>] -F <RS level> | -h\n",p_name);
+  printf("Usage: %s -o <filename> [-i <filename> -b <rate> -w <rate> -M -R -L <frame length> -F <RS level> ] | -h\n",p_name);
   printf("  -i <filename> Data file to read\n");
   printf("  -i -          Read from stdin\n");
   printf("  -o <filename> Output WAV file\n");
