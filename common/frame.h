@@ -66,4 +66,8 @@ int FrameManchesterDecode(FrameData *frame, int start);
 int Bits2Byte(char bits[]);
 //
 uint8_t Frame_CheckRSLimit(uint16_t msg_len, uint16_t parity_len);
+//
+uint8_t Frame_RSInit(uint16_t max_msg_size, uint16_t max_chunk_size, uint16_t max_rs_symbols);
+//
+void Frame_RSEncode(FrameData *frame);
 #endif // AUDIO_BIT_FRAME_H

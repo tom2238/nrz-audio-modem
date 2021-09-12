@@ -335,3 +335,32 @@ uint8_t Frame_CheckRSLimit(uint16_t msg_len, uint16_t parity_len) {
         return 0;
     }
 }
+
+uint8_t Frame_RSInit(uint16_t max_msg_size, uint16_t max_chunk_size, uint16_t max_rs_symbols) {
+    return SSFRS_Init(max_msg_size,max_chunk_size,max_rs_symbols);
+}
+
+void Frame_RSEncode(FrameData *frame) {
+    int i;
+    uint16_t eccLen;
+    uint16_t ecc_rs_size = SSFRS_GetRSSize();
+    uint16_t chunk_size = SSFRS_GetChunkSize();
+    // Data + CRC bytes array
+    uint8_t msg[frame->length-ecc_rs_size-HEAD_SIZE];
+    // Copy only Data + CRC
+    int j = 0;
+    for(i=FRAME_START+1;i<frame->length-ecc_rs_size;i++) {
+        msg[j] = frame->value[i];
+        j++;
+    }
+    // Array for RS parity bytes
+    uint8_t ecc[ecc_rs_size];
+    // Encode Reed-Solomon
+    SSFRS_Encode(msg, (uint16_t)sizeof(msg), ecc, (uint16_t)sizeof(ecc), &eccLen, ecc_rs_size, chunk_size);
+    // Copy parity bytes to frame
+    j = 0;
+    for(i=frame->length-ecc_rs_size;i<frame->length;i++) {
+        frame->value[i] = ecc[j];
+        j++;
+    }
+}

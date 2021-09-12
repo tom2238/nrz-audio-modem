@@ -745,7 +745,7 @@ void *ssfUnused;
 /* Never returns (except for unit testing), reports assertion failure.                           */
 /* --------------------------------------------------------------------------------------------- */
 static void SSFPortAssert(const char* file, unsigned int line) {
-    {printf("SSF Assertion: %s:%u\r\n", file, line); }
+    {fprintf(stderr,"SSF Assertion: %s:%u\r\n", file, line); }
     //for (;;);
 }
 

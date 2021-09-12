@@ -137,6 +137,19 @@ int main(int argc, char *argv[]) {
         }
         exit(ABIT_ERROR_FRAME_LENGTH);
     }
+    // Handle Reed-Solomon en/decoder init
+    if(optsettings.ecc_code!=0) {
+      if(Frame_RSInit(optsettings.framelength-optsettings.ecc_code-HEAD_SIZE,optsettings.framelength-optsettings.ecc_code-HEAD_SIZE,optsettings.ecc_code)) {
+        fprintf(stderr,"Error: Initializing Reed-Solomon en/decoder.\n");
+        if(wavefile.fp != NULL) {
+          fclose(wavefile.fp);
+        }
+        if(InputDataFile != NULL) {
+          fclose(InputDataFile);
+        }
+        exit(ABIT_ERROR_FRAME_LENGTH);
+      }
+    }
     // Check frame length
     if(optsettings.frame_modulation == FRAME_MOD_MAN) {
       if(optsettings.framelength > FRAME_LEN_MAX/2) {
@@ -223,6 +236,10 @@ int main(int argc, char *argv[]) {
         }
       }
       Frame_CalculateCRC16(&dataframe,optsettings.ecc_code);
+      // Calculate Reed-Solomon parity
+      if(optsettings.ecc_code != 0) {
+         Frame_RSEncode(&dataframe);
+      }
       // Print frame to console, delete in future, debug only
       if(strncmp(optsettings.filename,_ABIT_FILE_STDOUT,2) != 0) { // Is True
         PrintFrameData(dataframe,optsettings.ecc_code);
