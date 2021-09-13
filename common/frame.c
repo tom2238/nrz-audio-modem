@@ -181,9 +181,9 @@ void FrameXOR(FrameData *frame, int start) {
    }
 }
 
-void WriteFrameToFile(FrameData frame, FILE *fp) {
+void Frame_WriteToFile(FrameData frame, FILE *fp, int ecc_size_bytes) {
   int i;
-  for(i=FRAME_START+1;i<frame.length-CRC_SIZE;i++) {
+  for(i=FRAME_START+1;i<frame.length-CRC_SIZE-ecc_size_bytes;i++) {
     fwrite(&frame.value[i], 1, 1, fp);
   }
 }
@@ -361,6 +361,29 @@ void Frame_RSEncode(FrameData *frame) {
     j = 0;
     for(i=frame->length-ecc_rs_size;i<frame->length;i++) {
         frame->value[i] = ecc[j];
+        j++;
+    }
+}
+
+void Frame_RSDecode(FrameData *frame) {
+    int i;
+    uint16_t msgLen;
+    uint16_t ecc_rs_size = SSFRS_GetRSSize();
+    uint16_t chunk_size = SSFRS_GetChunkSize();
+    // Data + CRC + parity array
+    uint8_t msgRx[frame->length-HEAD_SIZE];
+    // Copy only Data + CRC + parity
+    int j = 0;
+    for(i=FRAME_START+1;i<frame->length;i++) {
+        msgRx[j] = frame->value[i];
+        j++;
+    }
+    // Error correction on the received message
+    SSFRS_Decode(msgRx, (uint16_t)sizeof(msgRx), &msgLen, ecc_rs_size, chunk_size);
+    // Copy decoded Data + CRC to frame
+    j = 0;
+    for(i=FRAME_START+1;i<frame->length-ecc_rs_size;i++) {
+        frame->value[i] = msgRx[j];
         j++;
     }
 }

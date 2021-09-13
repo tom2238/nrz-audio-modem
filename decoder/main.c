@@ -140,6 +140,19 @@ int main(int argc, char *argv[]) {
         }
         exit(ABIT_ERROR_FRAME_LENGTH);
     }
+    // Handle Reed-Solomon en/decoder init
+    if(optsettings.ecc_code!=0) {
+      if(Frame_RSInit(optsettings.framelength-optsettings.ecc_code-HEAD_SIZE,optsettings.framelength-optsettings.ecc_code-HEAD_SIZE,optsettings.ecc_code)) {
+        fprintf(stderr,"Error: Initializing Reed-Solomon en/decoder.\n");
+        if(wavefile.fp != NULL) {
+          fclose(wavefile.fp);
+        }
+        if(OutputDataFile != NULL) {
+          fclose(OutputDataFile);
+        }
+        exit(ABIT_ERROR_FRAME_LENGTH);
+      }
+    }
     // Check frame length
     if(optsettings.frame_modulation == FRAME_MOD_MAN) {
       if(optsettings.framelength > FRAME_LEN_MAX/2) {
@@ -216,24 +229,6 @@ int main(int argc, char *argv[]) {
     }
 
     while (!ReadBitsFSK(wavefile,optsettings,&readingbits,&bit,&len)) {
-//      if (len == 0) { // reset_frame();
-//        if (byte_count > pos_AUX) {
-//          bit_count = 0;
-//          byte_count = FRAME_START;
-//          header_found = 0;
-//          FrameXOR(&frame,FRAME_START);
-//          if(optsettings.printframe) {
-//            printf("Print frame len==0\n");
-//            PrintFrameData(frame);
-//          }
-//          else {
-//            // Write frame
-//            WriteFrameToFile(frame,OutputDataFile);
-//          }
-//        }
-//        continue;
-//      }
-
       for (i = 0; i < len; i++) {
         IncHeadPos(&bufferheader);
         bufferheader.value[bufferheader.position] = 0x30 + bit;  // Ascii
@@ -267,7 +262,11 @@ int main(int argc, char *argv[]) {
               } else {
                 FrameXOR(&frame,FRAME_START); // XORing NRZ frame
               }
-
+              // Reed-Solomon error correction
+              if(optsettings.ecc_code != 0) {
+                 Frame_RSDecode(&frame);
+              }
+              // Printing frame content to console
               if(optsettings.printframe) {
                 #ifdef _PRG_DEBUG
                   printf("Print frame after count==frmlen\n");
@@ -286,7 +285,7 @@ int main(int argc, char *argv[]) {
               }
               else {
                 // Write frame
-                WriteFrameToFile(frame,OutputDataFile);
+                Frame_WriteToFile(frame,OutputDataFile,optsettings.ecc_code);
               }
               frame.length = optsettings.framelength;
             }

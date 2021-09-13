@@ -53,7 +53,7 @@ void PrintFrame_STM32(FrameData frame, int ecc_size_bytes);
 //
 void FrameXOR(FrameData *frame, int start);
 //
-void WriteFrameToFile(FrameData frame, FILE *fp);
+void Frame_WriteToFile(FrameData frame, FILE *fp, int ecc_size_bytes);
 //
 uint16_t Frame_CalculateCRC16(FrameData *frame, int ecc_size_bytes);
 //
@@ -70,4 +70,6 @@ uint8_t Frame_CheckRSLimit(uint16_t msg_len, uint16_t parity_len);
 uint8_t Frame_RSInit(uint16_t max_msg_size, uint16_t max_chunk_size, uint16_t max_rs_symbols);
 //
 void Frame_RSEncode(FrameData *frame);
+//
+void Frame_RSDecode(FrameData *frame);
 #endif // AUDIO_BIT_FRAME_H

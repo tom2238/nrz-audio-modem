@@ -121,7 +121,7 @@
 /* --------------------------------------------------------------------------------------------- */
 void SSFRS_Encode(const uint8_t *msg, uint16_t msgLen, uint8_t* eccBuf, uint16_t eccBufSize,
                  uint16_t *eccBufLen, uint8_t eccNumBytes, uint8_t chunkSize);
-bool SSFRS_Decode(uint8_t *msg, uint16_t msgSize, uint16_t *msgLen, uint8_t chunkSyms,
+bool SSFRS_Decode(uint8_t *msg, uint16_t msgSize, uint16_t *msgLen, uint8_t eccNumBytes,
                  uint8_t chunkSize);
 uint8_t SSFRS_Init(uint16_t max_msg_size, uint16_t max_chunk_size, uint16_t max_rs_symbols);
 uint16_t SSFRS_GetMsgSize(void);
