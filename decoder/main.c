@@ -274,6 +274,9 @@ int main(int argc, char *argv[]) {
                 #else
                   // Select printing mode
                   switch (optsettings.printmode) {
+                  case 2: // Print packet from Vaisala RS41 GPS
+                    PrintFrame_RS41GPS(frame,optsettings.ecc_code);
+                    break;
                   case 1: // Print packet from STM32 blue pill test
                     PrintFrame_STM32(frame,optsettings.ecc_code);
                     break;
@@ -320,6 +323,7 @@ void Usage(char *p_name) {
   printf("  -P <mode>     Frame printing mode number\n");
   printf("                0 - HEX frame output, default\n");
   printf("                1 - Decoding from STM32 bluepill test\n");
+  printf("                2 - Decoding from Vaisala RS41\n");
   printf("  -h            Show this help\n");
   printf("                Build: %s %s, GCC %s\n", __TIME__, __DATE__, __VERSION__);
   printf("Run:\n");

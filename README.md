@@ -36,7 +36,7 @@ Total: 352 bits -> 44 bytes
 
 ```
 ### Reed-Solomon ECC
-Future support for codes:
+Support for following RS codes:
 * RS(255,247)
 * RS(255,239)
 * RS(255,231)
@@ -67,6 +67,7 @@ Usage: ../decoder/decoder -i <filename> [-o <filename> -IRA -b <rate> -M -L <fra
   -P <mode>     Frame printing mode number
                 0 - HEX frame output, default
                 1 - Decoding from STM32 bluepill test
+                2 - Decoding from Vaisala RS41
   -h            Show this help
                 Build: 21:21:53 Sep 10 2021, GCC 5.3.0
 Run:
@@ -97,7 +98,7 @@ Run:
 
 ## TODO
 * Implement Manchester code => Finished
-* Add Reed Solomon ECC
+* Add Reed Solomon ECC => Finished
 * Better header detection
 * Create some Arduino encoder sketch sending small data packet (like temperature) => Finished https://github.com/tom2238/radiosonde_hacking/tree/main/rs41
 * Some bugs and features :-)

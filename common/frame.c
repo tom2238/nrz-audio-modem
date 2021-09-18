@@ -158,6 +158,63 @@ void PrintFrame_STM32(FrameData frame, int ecc_size_bytes) {
   }
 }
 
+void PrintFrame_RS41GPS(FrameData frame, int ecc_size_bytes) {
+    // Calculate CRC
+    uint16_t crctrs = Frame_GetCRC16(frame,ecc_size_bytes);
+    uint16_t crcrec = Frame_CalculateCRC16(&frame,ecc_size_bytes); // Calculate rewrite internal CRC value
+    // RS41 ublox GPS data
+    uint16_t year;          // Year, range 1999..2099 (UTC) [- y]
+    year = (frame.value[8]) << 24;
+    year += (frame.value[9]) << 16;
+    year += (frame.value[10]) << 8;
+    year += (frame.value[11]) << 0;
+    uint8_t month;          // Month, range 1..12 (UTC) [- month]
+    month = frame.value[12];
+    uint8_t day;            // Day of Month, range 1..31 (UTC) [- d]
+    day = frame.value[13];
+    uint8_t hour;           // Hour of Day, range 0..23 (UTC) [- h]
+    hour = frame.value[14];
+    uint8_t min;            // Minute of Hour, range 0..59 (UTC) [- min]
+    min = frame.value[15];
+    uint8_t sec;            // Seconds of Minute, range 0..59 (UTC) [- s]
+    sec = frame.value[16];
+    uint8_t gpsFix;         // GPSfix Type
+    gpsFix = frame.value[17];
+    uint8_t numSV;          // Number of SVs used in Nav Solution
+    numSV = frame.value[18];
+    int32_t lon;            // Longitude [1e-7 deg]
+    lon = (frame.value[19]) << 24;
+    lon += (frame.value[20]) << 16;
+    lon += (frame.value[21]) << 8;
+    lon += (frame.value[22]) << 0;
+    float lon_f = ((float)(lon))*1e-7;
+    int32_t lat;            // Latitude [1e-7 deg]
+    lat = (frame.value[23]) << 24;
+    lat += (frame.value[24]) << 16;
+    lat += (frame.value[25]) << 8;
+    lat += (frame.value[26]) << 0;
+    float lat_f = ((float)(lat))*1e-7;
+    int32_t hMSL;           // Height above mean sea level [- mm]
+    hMSL = (frame.value[27]) << 24;
+    hMSL += (frame.value[28]) << 16;
+    hMSL += (frame.value[29]) << 8;
+    hMSL += (frame.value[30]) << 0;
+    float alt_f = ((float)(hMSL))*1e-3;
+    uint32_t speed;         // Speed (3-D) [- cm/s]
+    uint32_t gSpeed;        // Ground Speed (2-D) [- cm/s]
+    int32_t heading;        // Heading of motion 2-D [1e-5 deg]
+
+    // Print
+    fprintf(stdout,"[GPS] %d.%d.%d %d:%d:%d Fix:%d, numSV:%d, Lat:%f, Lon:%f Alt:%f ",day,month,year,hour,min,sec,gpsFix,numSV,lat_f,lon_f,alt_f);
+    // Check CRC value
+    if(crcrec==crctrs) {
+      printf("[CRC OK]\n");
+    }
+    else {
+      printf("[CRC FAIL]\n");
+    }
+}
+
 void FrameXOR(FrameData *frame, int start) {
   const uint8_t mask[FRAME_XORMASK_LEN] = { 0x96, 0x83, 0x3E, 0x51, 0xB1, 0x49, 0x08, 0x98,
                                       0x32, 0x05, 0x59, 0x0E, 0xF9, 0x44, 0xC6, 0x26,
