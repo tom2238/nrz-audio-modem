@@ -187,13 +187,13 @@ void PrintFrame_RS41GPS(FrameData frame, int ecc_size_bytes) {
     lon += (frame.value[20]) << 16;
     lon += (frame.value[21]) << 8;
     lon += (frame.value[22]) << 0;
-    float lon_f = ((float)(lon))*1e-7;
+    double lon_f = ((float)(lon))*1e-7;
     int32_t lat;            // Latitude [1e-7 deg]
     lat = (frame.value[23]) << 24;
     lat += (frame.value[24]) << 16;
     lat += (frame.value[25]) << 8;
     lat += (frame.value[26]) << 0;
-    float lat_f = ((float)(lat))*1e-7;
+    double lat_f = ((float)(lat))*1e-7;
     int32_t hMSL;           // Height above mean sea level [- mm]
     hMSL = (frame.value[27]) << 24;
     hMSL += (frame.value[28]) << 16;
@@ -201,18 +201,68 @@ void PrintFrame_RS41GPS(FrameData frame, int ecc_size_bytes) {
     hMSL += (frame.value[30]) << 0;
     float alt_f = ((float)(hMSL))*1e-3;
     uint32_t speed;         // Speed (3-D) [- cm/s]
+    speed = (frame.value[31]) << 24;
+    speed += (frame.value[32]) << 16;
+    speed += (frame.value[33]) << 8;
+    speed += (frame.value[34]) << 0;
+    float speed_f = ((float)(speed))/100;
     uint32_t gSpeed;        // Ground Speed (2-D) [- cm/s]
+    gSpeed = (frame.value[35]) << 24;
+    gSpeed += (frame.value[36]) << 16;
+    gSpeed += (frame.value[37]) << 8;
+    gSpeed += (frame.value[38]) << 0;
+    float gSpeed_f = ((float)(gSpeed))/100;
     int32_t heading;        // Heading of motion 2-D [1e-5 deg]
+    heading = (frame.value[39]) << 24;
+    heading += (frame.value[40]) << 16;
+    heading += (frame.value[41]) << 8;
+    heading += (frame.value[42]) << 0;
+    float heading_f = ((float)(heading))*1e-5;
+    uint32_t iTOW;          // GPS Millisecond Time of Week [- ms]
+    iTOW = (frame.value[43]) << 24;
+    iTOW += (frame.value[44]) << 16;
+    iTOW += (frame.value[45]) << 8;
+    iTOW += (frame.value[46]) << 0;
+    // Calculate day
+    uint32_t gpstime = iTOW/1000;
+    uint32_t gpsday = (gpstime / (24 * 3600)) % 7;
+    const char weekday[7][3] = { "Su", "Mo", "Th", "We", "Tr", "Fr", "Sa"};
+    int16_t week;           // GPS week (GPS time) [- -]
+    week = (frame.value[47]) << 8;
+    week += (frame.value[48]) << 0;
+    uint16_t pDOP;          // Position DOP [0.01 -]
+    pDOP = (frame.value[49]) << 24;
+    pDOP += (frame.value[50]) << 16;
+    pDOP += (frame.value[51]) << 8;
+    pDOP += (frame.value[52]) << 0;
+    // Frame count
+    uint16_t frame_cnt;
+    frame_cnt = (frame.value[53]) << 8;
+    frame_cnt += (frame.value[54]);
+    // Sonde ID
+    char SondeID[8];
+    SondeID[0] = frame.value[55];
+    SondeID[1] = frame.value[56];
+    SondeID[2] = frame.value[57];
+    SondeID[3] = frame.value[58];
+    SondeID[4] = frame.value[59];
+    SondeID[5] = frame.value[60];
+    SondeID[6] = frame.value[61];
+    SondeID[7] = frame.value[62];
 
     // Print
-    fprintf(stdout,"[GPS] %d.%d.%d %d:%d:%d Fix:%d, numSV:%d, Lat:%f, Lon:%f Alt:%f ",day,month,year,hour,min,sec,gpsFix,numSV,lat_f,lon_f,alt_f);
+    //fprintf(stdout,"[GPS] %02d.%02d.%04d %02d:%02d:%02d Fix:%d, numSV:%d, Lat:%.7f, Lon:%.7f Alt:%.2f Speed:%.1f Ground speed:%.1f Heading:%.1f ",day,month,year,hour,min,sec,gpsFix,numSV,lat_f,lon_f,alt_f,speed_f,gSpeed_f,heading_f);
+
     // Check CRC value
     if(crcrec==crctrs) {
-      printf("[CRC OK]\n");
+      //printf("[CRC OK]\n");
+      //[ 5653] (R5030250) So 2021-09-05 12:33:28.001 (W 2174)  lat: 48.82555  lon: 20.93063  alt: 25231.48   vH: 13.8  D:  71.1  vV: 7.0 //
+      fprintf(stdout,"[%d] (%s) %s %04d-%02d-%02d %02d:%02d:%02d.001 (W %d)  lat: %.7f  lon: %.7f  alt: %.2f  vH: %.1f  D: %.1f  vV: %.1f  numSV: %d\n",frame_cnt,SondeID,weekday[gpsday],year,month,day,hour,min,sec,week,lat_f,lon_f,alt_f,gSpeed_f,heading_f,0.0f,numSV);
     }
     else {
-      printf("[CRC FAIL]\n");
+      //printf("[CRC FAIL]\n");
     }
+    fflush(stdout);
 }
 
 void FrameXOR(FrameData *frame, int start) {
@@ -272,7 +322,6 @@ uint16_t Frame_GetCRC16(FrameData frame, int ecc_size_bytes) {
   uint16_t lsb = frame.value[frame.length-1-ecc_size_bytes] & 0xFF;
   uint16_t msb = (frame.value[frame.length-2-ecc_size_bytes] << 8) & 0xFF00;
   return lsb + msb;
-  // return (frame.value[frame.length-1]) + (frame.value[frame.length-2] << 8);
 }
 
 int FrameManchesterEncode(FrameData *frame, int start) {
