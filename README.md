@@ -68,6 +68,7 @@ Usage: ../decoder/decoder -i <filename> [-o <filename> -IRA -b <rate> -M -L <fra
                 0 - HEX frame output, default
                 1 - Decoding from STM32 bluepill test
                 2 - Decoding from Vaisala RS41
+                3 - Decoding from Vaisala RS41 sounding sonde
   -h            Show this help
                 Build: 21:21:53 Sep 10 2021, GCC 5.3.0
 Run:

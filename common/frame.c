@@ -110,8 +110,7 @@ void PrintFrameData(FrameData frame, int ecc_size_bytes) {
   }
   if(crcrec==crctrs) {
     printf(" CRC OK ");
-  }
-  else {
+  } else {
     printf(" CRC FAIL ");
   }
   printf("CRC(rt) %x : %x\n",crcrec,crctrs);
@@ -152,8 +151,7 @@ void PrintFrame_STM32(FrameData frame, int ecc_size_bytes) {
   // Check CRC value
   if(crcrec==crctrs) {
     printf("[CRC OK]\n");
-  }
-  else {
+  } else {
     printf("[CRC FAIL]\n");
   }
 }
@@ -258,8 +256,125 @@ void PrintFrame_RS41GPS(FrameData frame, int ecc_size_bytes) {
       //printf("[CRC OK]\n");
       //[ 5653] (R5030250) So 2021-09-05 12:33:28.001 (W 2174)  lat: 48.82555  lon: 20.93063  alt: 25231.48   vH: 13.8  D:  71.1  vV: 7.0 //
       fprintf(stdout,"[%d] (%s) %s %04d-%02d-%02d %02d:%02d:%02d.001 (W %d)  lat: %.7f  lon: %.7f  alt: %.2f  vH: %.1f  D: %.1f  vV: %.1f  numSV: %d\n",frame_cnt,SondeID,weekday[gpsday],year,month,day,hour,min,sec,week,lat_f,lon_f,alt_f,gSpeed_f,heading_f,0.0f,numSV);
+    } else {
+      //printf("[CRC FAIL]\n");
     }
-    else {
+    fflush(stdout);
+}
+
+
+void PrintFrame_RS41Sounding(FrameData frame, int ecc_size_bytes) {
+    // Calculate CRC
+    uint16_t crctrs = Frame_GetCRC16(frame,ecc_size_bytes);
+    uint16_t crcrec = Frame_CalculateCRC16(&frame,ecc_size_bytes); // Calculate rewrite internal CRC value
+
+    // RS41 ublox GPS data
+    uint16_t year;          // Year, range 1999..2099 (UTC) [- y]
+    year = (frame.value[8]) << 24;
+    year += (frame.value[9]) << 16;
+    year += (frame.value[10]) << 8;
+    year += (frame.value[11]) << 0;
+    uint8_t month;          // Month, range 1..12 (UTC) [- month]
+    month = frame.value[12];
+    uint8_t day;            // Day of Month, range 1..31 (UTC) [- d]
+    day = frame.value[13];
+    uint8_t hour;           // Hour of Day, range 0..23 (UTC) [- h]
+    hour = frame.value[14];
+    uint8_t min;            // Minute of Hour, range 0..59 (UTC) [- min]
+    min = frame.value[15];
+    uint8_t sec;            // Seconds of Minute, range 0..59 (UTC) [- s]
+    sec = frame.value[16];
+    uint8_t gpsFix;         // GPSfix Type
+    gpsFix = frame.value[17];
+    uint8_t numSV;          // Number of SVs used in Nav Solution
+    numSV = frame.value[18];
+    int32_t lon;            // Longitude [1e-7 deg]
+    lon = (frame.value[19]) << 24;
+    lon += (frame.value[20]) << 16;
+    lon += (frame.value[21]) << 8;
+    lon += (frame.value[22]) << 0;
+    double lon_f = ((float)(lon))*1e-7;
+    int32_t lat;            // Latitude [1e-7 deg]
+    lat = (frame.value[23]) << 24;
+    lat += (frame.value[24]) << 16;
+    lat += (frame.value[25]) << 8;
+    lat += (frame.value[26]) << 0;
+    double lat_f = ((float)(lat))*1e-7;
+    int32_t hMSL;           // Height above mean sea level [- mm]
+    hMSL = (frame.value[27]) << 24;
+    hMSL += (frame.value[28]) << 16;
+    hMSL += (frame.value[29]) << 8;
+    hMSL += (frame.value[30]) << 0;
+    float alt_f = ((float)(hMSL))*1e-3;
+    uint32_t speed;         // Speed (3-D) [- cm/s]
+    speed = (frame.value[31]) << 24;
+    speed += (frame.value[32]) << 16;
+    speed += (frame.value[33]) << 8;
+    speed += (frame.value[34]) << 0;
+    float speed_f = ((float)(speed))/100;
+    uint32_t gSpeed;        // Ground Speed (2-D) [- cm/s]
+    gSpeed = (frame.value[35]) << 24;
+    gSpeed += (frame.value[36]) << 16;
+    gSpeed += (frame.value[37]) << 8;
+    gSpeed += (frame.value[38]) << 0;
+    float gSpeed_f = ((float)(gSpeed))/100;
+    int32_t heading;        // Heading of motion 2-D [1e-5 deg]
+    heading = (frame.value[39]) << 24;
+    heading += (frame.value[40]) << 16;
+    heading += (frame.value[41]) << 8;
+    heading += (frame.value[42]) << 0;
+    float heading_f = ((float)(heading))*1e-5;
+    uint32_t iTOW;          // GPS Millisecond Time of Week [- ms]
+    iTOW = (frame.value[43]) << 24;
+    iTOW += (frame.value[44]) << 16;
+    iTOW += (frame.value[45]) << 8;
+    iTOW += (frame.value[46]) << 0;
+    // Calculate day
+    uint32_t gpstime = iTOW/1000;
+    uint32_t gpsday = (gpstime / (24 * 3600)) % 7;
+    const char weekday[7][3] = { "Su", "Mo", "Th", "We", "Tr", "Fr", "Sa"};
+    int16_t week;           // GPS week (GPS time) [- -]
+    week = (frame.value[47]) << 8;
+    week += (frame.value[48]) << 0;
+    // PTU main temperature only
+    uint32_t ptu_main_sensor;
+    ptu_main_sensor = (frame.value[49]) << 24;
+    ptu_main_sensor += (frame.value[50]) << 16;
+    ptu_main_sensor += (frame.value[51]) << 8;
+    ptu_main_sensor += (frame.value[52]) << 0;
+    // Calculate temperaure
+    float ptu_main_sensor_f = (float)(ptu_main_sensor);
+    ptu_main_sensor_f = (ptu_main_sensor_f / 100) - 100;
+    // Get voltage
+    uint8_t bat_voltage = frame.value[53];
+    float bat_voltage_f = ((float)(bat_voltage))/10;
+    // Sonde ID
+    char SondeID[8];
+    SondeID[0] = frame.value[54];
+    SondeID[1] = frame.value[55];
+    SondeID[2] = frame.value[56];
+    SondeID[3] = frame.value[57];
+    SondeID[4] = frame.value[58];
+    SondeID[5] = frame.value[59];
+    SondeID[6] = frame.value[60];
+    SondeID[7] = frame.value[61];
+    // Frame count
+    uint16_t frame_cnt;
+    frame_cnt = (frame.value[62]) << 8;
+    frame_cnt += (frame.value[63]);
+    // Frequency MHz
+    uint16_t freq_mhz = (frame.value[64]) << 8;
+    freq_mhz += frame.value[65];
+    float freq_mhz_f = ((float)(freq_mhz))/100;
+    // Txpower dBm
+    uint8_t tx_power = frame.value[66];
+
+    // Check CRC value
+    if(crcrec==crctrs) {
+      //printf("[CRC OK]\n");
+      //[ 5653] (R5030250) So 2021-09-05 12:33:28.001 (W 2174)  lat: 48.82555  lon: 20.93063  alt: 25231.48   vH: 13.8  D:  71.1  vV: 7.0 //
+      fprintf(stdout,"[%d] (%s) %s %04d-%02d-%02d %02d:%02d:%02d.001 (W %d)  lat: %.7f  lon: %.7f  alt: %.2f  vH: %.1f  v3D: %.1f  D: %.1f  vV: %.1f  numSV: %d  Tm: %.1f  vBat: %.1f  freq: %.3f  txPower: %d\n",frame_cnt,SondeID,weekday[gpsday],year,month,day,hour,min,sec,week,lat_f,lon_f,alt_f,gSpeed_f,speed_f,heading_f,0.0f,numSV,ptu_main_sensor_f,bat_voltage_f,freq_mhz_f,tx_power);
+    } else {
       //printf("[CRC FAIL]\n");
     }
     fflush(stdout);

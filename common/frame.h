@@ -53,6 +53,8 @@ void PrintFrame_STM32(FrameData frame, int ecc_size_bytes);
 //
 void PrintFrame_RS41GPS(FrameData frame, int ecc_size_bytes);
 //
+void PrintFrame_RS41Sounding(FrameData frame, int ecc_size_bytes);
+//
 void FrameXOR(FrameData *frame, int start);
 //
 void Frame_WriteToFile(FrameData frame, FILE *fp, int ecc_size_bytes);

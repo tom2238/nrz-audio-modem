@@ -242,57 +242,58 @@ int main(int argc, char *argv[]) {
               #endif
             }
           }
-        }
-        else {
-          bitbuf[bit_count] = bit;
-          bit_count++;
+        } else {
+            bitbuf[bit_count] = bit;
+            bit_count++;
 
-          if (bit_count == 8) {
-            bit_count = 0;
-            byte = Bits2Byte(bitbuf);
-            frame.value[byte_count] = byte;
-            byte_count++;
+            if (bit_count == 8) {
+                bit_count = 0;
+                byte = Bits2Byte(bitbuf);
+                frame.value[byte_count] = byte;
+                byte_count++;
 
-            if (byte_count == frmlen) {
-              byte_count = FRAME_START;
-              header_found = 0;
+                if (byte_count == frmlen) {
+                    byte_count = FRAME_START;
+                    header_found = 0;
 
-              if(optsettings.frame_modulation == FRAME_MOD_MAN) {
-                FrameManchesterDecode(&frame,FRAME_START+1); // Decode Manchester frame
-              } else {
-                FrameXOR(&frame,FRAME_START); // XORing NRZ frame
-              }
-              // Reed-Solomon error correction
-              if(optsettings.ecc_code != 0) {
-                 Frame_RSDecode(&frame);
-              }
-              // Printing frame content to console
-              if(optsettings.printframe) {
-                #ifdef _PRG_DEBUG
-                  printf("Print frame after count==frmlen\n");
-                  PrintFrameData(frame,optsettings.ecc_code);
-                #else
-                  // Select printing mode
-                  switch (optsettings.printmode) {
-                  case 2: // Print packet from Vaisala RS41 GPS
-                    PrintFrame_RS41GPS(frame,optsettings.ecc_code);
-                    break;
-                  case 1: // Print packet from STM32 blue pill test
-                    PrintFrame_STM32(frame,optsettings.ecc_code);
-                    break;
-                  case 0: // Zero or default is hex output
-                  default:
-                    PrintFrameData(frame,optsettings.ecc_code);
-                  }
-                #endif
-              }
-              else {
-                // Write frame
-                Frame_WriteToFile(frame,OutputDataFile,optsettings.ecc_code);
-              }
-              frame.length = optsettings.framelength;
+                    if(optsettings.frame_modulation == FRAME_MOD_MAN) {
+                        FrameManchesterDecode(&frame,FRAME_START+1); // Decode Manchester frame
+                    } else {
+                        FrameXOR(&frame,FRAME_START); // XORing NRZ frame
+                    }
+                    // Reed-Solomon error correction
+                    if(optsettings.ecc_code != 0) {
+                        Frame_RSDecode(&frame);
+                    }
+                    // Printing frame content to console
+                    if(optsettings.printframe) {
+#ifdef _PRG_DEBUG
+                        printf("Print frame after count==frmlen\n");
+                        PrintFrameData(frame,optsettings.ecc_code);
+#else
+                        // Select printing mode
+                        switch (optsettings.printmode) {
+                        case 3: // Print packet from Vaisala RS41 sounding sonde
+                            PrintFrame_RS41Sounding(frame,optsettings.ecc_code);
+                            break;
+                        case 2: // Print packet from Vaisala RS41 GPS
+                            PrintFrame_RS41GPS(frame,optsettings.ecc_code);
+                            break;
+                        case 1: // Print packet from STM32 blue pill test
+                            PrintFrame_STM32(frame,optsettings.ecc_code);
+                            break;
+                        case 0: // Zero or default is hex output
+                        default:
+                            PrintFrameData(frame,optsettings.ecc_code);
+                        }
+#endif
+                    } else {
+                        // Write frame
+                        Frame_WriteToFile(frame,OutputDataFile,optsettings.ecc_code);
+                    }
+                    frame.length = optsettings.framelength;
+                }
             }
-          }
         }
       }
     }
@@ -324,6 +325,7 @@ void Usage(char *p_name) {
   printf("                0 - HEX frame output, default\n");
   printf("                1 - Decoding from STM32 bluepill test\n");
   printf("                2 - Decoding from Vaisala RS41\n");
+  printf("                3 - Decoding from Vaisala RS41 sounding sonde\n");
   printf("  -h            Show this help\n");
   printf("                Build: %s %s, GCC %s\n", __TIME__, __DATE__, __VERSION__);
   printf("Run:\n");
