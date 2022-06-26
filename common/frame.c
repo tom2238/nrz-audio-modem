@@ -1,5 +1,7 @@
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 #include "frame.h"
 #include "ssfrs.h"
 // NRZ
@@ -306,12 +308,12 @@ void PrintFrame_RS41Sounding(FrameData frame, int ecc_size_bytes) {
     hMSL += (frame.value[29]) << 8;
     hMSL += (frame.value[30]) << 0;
     float alt_f = ((float)(hMSL))*1e-3;
-    uint32_t speed;         // Speed (3-D) [- cm/s]
-    speed = (frame.value[31]) << 24;
-    speed += (frame.value[32]) << 16;
-    speed += (frame.value[33]) << 8;
-    speed += (frame.value[34]) << 0;
-    float speed_f = ((float)(speed))/100;
+    uint32_t vspeed;         // Down velocity component [- cm/s]
+    vspeed = (frame.value[31]) << 24;
+    vspeed += (frame.value[32]) << 16;
+    vspeed += (frame.value[33]) << 8;
+    vspeed += (frame.value[34]) << 0;
+    float vspeed_f = ((float)(vspeed))/100;
     uint32_t gSpeed;        // Ground Speed (2-D) [- cm/s]
     gSpeed = (frame.value[35]) << 24;
     gSpeed += (frame.value[36]) << 16;
@@ -371,9 +373,25 @@ void PrintFrame_RS41Sounding(FrameData frame, int ecc_size_bytes) {
 
     // Check CRC value
     if(crcrec==crctrs) {
+        if(numSV == 0) {
+            lat_f = 0.0f;
+            lon_f = 0.0f;
+        }
+
       //printf("[CRC OK]\n");
       //[ 5653] (R5030250) So 2021-09-05 12:33:28.001 (W 2174)  lat: 48.82555  lon: 20.93063  alt: 25231.48   vH: 13.8  D:  71.1  vV: 7.0 //
-      fprintf(stdout,"[%d] (%s) %s %04d-%02d-%02d %02d:%02d:%02d.001 (W %d)  lat: %.7f  lon: %.7f  alt: %.2f  vH: %.1f  v3D: %.1f  D: %.1f  vV: %.1f  numSV: %d  Tm: %.1f  vBat: %.1f  freq: %.3f  txPower: %d\n",frame_cnt,SondeID,weekday[gpsday],year,month,day,hour,min,sec,week,lat_f,lon_f,alt_f,gSpeed_f,speed_f,heading_f,0.0f,numSV,ptu_main_sensor_f,bat_voltage_f,freq_mhz_f,tx_power);
+      //fprintf(stdout,"[%d] (%s) %s %04d-%02d-%02d %02d:%02d:%02d.001 (W %d)  lat: %.7f  lon: %.7f  alt: %.2f  vH: %.1f  D: %.1f  vV: %.1f  numSV: %d  Tm: %.1f  vBat: %.1f  freq: %.3f  txPower: %d\n",frame_cnt,SondeID,weekday[gpsday],year,month,day,hour,min,sec,week,lat_f,lon_f,alt_f,gSpeed_f,heading_f,vspeed_f,numSV,ptu_main_sensor_f,bat_voltage_f,freq_mhz_f,tx_power);
+
+      // Print UKHAS string
+      char ukhas_msg[512];
+      uint16_t ukhas_crc = 0;
+      int chars_writed = snprintf(ukhas_msg,sizeof(ukhas_msg),"$$%s,%d,%02d:%02d:%02d,%.7f,%.7f,%.0f,%.1f,%.1f,%.1f,%.0f,%.1f,%d,%.3f MHz https://github.com/tom2238/radiosonde_hacking/tree/main/rs41/sounding_sonde",SondeID,frame_cnt,hour,min,sec,lat_f,lon_f,alt_f,gSpeed_f,ptu_main_sensor_f,bat_voltage_f,heading_f,vspeed_f,numSV,freq_mhz_f);
+      if(chars_writed < sizeof(ukhas_msg)) {
+          ukhas_crc = ukhas_CRC16_checksum(ukhas_msg);
+      } else {
+          fprintf(stderr,"snprinf buffer length error\n");
+      }
+      fprintf(stdout,"%s*%04x\n",ukhas_msg,ukhas_crc);
     } else {
       //printf("[CRC FAIL]\n");
     }
@@ -431,6 +449,36 @@ uint16_t Frame_CalculateCRC16(FrameData *frame, int ecc_size_bytes) {
   frame->value[frame->length-1-ecc_size_bytes] = crc & 0xFF;
   frame->value[frame->length-2-ecc_size_bytes] = (crc >> 8) & 0xFF;
   return crc;
+}
+
+uint16_t crc_xmodem_update (uint16_t crc, uint8_t data) {
+    int i;
+    crc = crc ^ ((uint16_t)data << 8);
+    for (i=0; i<8; i++)
+    {
+        if (crc & 0x8000)
+            crc = (crc << 1) ^ 0x1021;
+        else
+            crc <<= 1;
+    }
+    return crc;
+}
+
+uint16_t ukhas_CRC16_checksum (char *string) {
+    size_t i;
+    uint16_t crc;
+    uint8_t c;
+
+    crc = 0xFFFF;
+
+    // Calculate checksum ignoring the first two $s
+    for (i = 2; i < strlen(string); i++)
+    {
+        c = string[i];
+        crc = crc_xmodem_update (crc, c);
+    }
+
+    return crc;
 }
 
 uint16_t Frame_GetCRC16(FrameData frame, int ecc_size_bytes) {

@@ -61,6 +61,10 @@ void Frame_WriteToFile(FrameData frame, FILE *fp, int ecc_size_bytes);
 //
 uint16_t Frame_CalculateCRC16(FrameData *frame, int ecc_size_bytes);
 //
+uint16_t crc_xmodem_update (uint16_t crc, uint8_t data);
+//
+uint16_t ukhas_CRC16_checksum (char *string);
+//
 uint16_t Frame_GetCRC16(FrameData frame, int ecc_size_bytes);
 //
 int FrameManchesterEncode(FrameData *frame, int start);
