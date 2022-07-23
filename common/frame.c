@@ -308,7 +308,7 @@ void PrintFrame_RS41Sounding(FrameData frame, int ecc_size_bytes) {
     hMSL += (frame.value[29]) << 8;
     hMSL += (frame.value[30]) << 0;
     float alt_f = ((float)(hMSL))*1e-3;
-    uint32_t vspeed;         // Down velocity component [- cm/s]
+    int32_t vspeed;         // Down velocity component [- cm/s]
     vspeed = (frame.value[31]) << 24;
     vspeed += (frame.value[32]) << 16;
     vspeed += (frame.value[33]) << 8;
@@ -385,13 +385,18 @@ void PrintFrame_RS41Sounding(FrameData frame, int ecc_size_bytes) {
       // Print UKHAS string
       char ukhas_msg[512];
       uint16_t ukhas_crc = 0;
-      int chars_writed = snprintf(ukhas_msg,sizeof(ukhas_msg),"$$%s,%d,%02d:%02d:%02d,%.7f,%.7f,%.0f,%.1f,%.1f,%.1f,%.0f,%.1f,%d,%.3f MHz https://github.com/tom2238/radiosonde_hacking/tree/main/rs41/sounding_sonde",SondeID,frame_cnt,hour,min,sec,lat_f,lon_f,alt_f,gSpeed_f,ptu_main_sensor_f,bat_voltage_f,heading_f,vspeed_f,numSV,freq_mhz_f);
+      // With comment
+      //int chars_writed = snprintf(ukhas_msg,sizeof(ukhas_msg),"$$%s,%d,%02d:%02d:%02d,%.7f,%.7f,%.0f,%.1f,%.1f,%.1f,%.0f,%.1f,%d,%.3f MHz,https://github.com/tom2238/radiosonde_hacking/tree/main/rs41/sounding_sonde",SondeID,frame_cnt,hour,min,sec,lat_f,lon_f,alt_f,gSpeed_f,ptu_main_sensor_f,bat_voltage_f,heading_f,vspeed_f,numSV,freq_mhz_f);
+      // Without comment and CRC
+      int chars_writed = snprintf(ukhas_msg,sizeof(ukhas_msg),"$$%s,%d,%02d:%02d:%02d,%.7f,%.7f,%.0f,%.1f,%.1f,%.1f,%.0f,%.1f,%d,%.3f MHz",SondeID,frame_cnt,hour,min,sec,lat_f,lon_f,alt_f,gSpeed_f,ptu_main_sensor_f,bat_voltage_f,heading_f,vspeed_f,numSV,freq_mhz_f);
       if(chars_writed < sizeof(ukhas_msg)) {
-          ukhas_crc = ukhas_CRC16_checksum(ukhas_msg);
+          // CRC is calculated in habitat_upload
+          //ukhas_crc = ukhas_CRC16_checksum(ukhas_msg);
       } else {
           fprintf(stderr,"snprinf buffer length error\n");
       }
-      fprintf(stdout,"%s*%04x\n",ukhas_msg,ukhas_crc);
+      //fprintf(stdout,"%s*%04x\n",ukhas_msg,ukhas_crc);
+      fprintf(stdout,"%s\n",ukhas_msg);
     } else {
       //printf("[CRC FAIL]\n");
     }
